@@ -187,6 +187,8 @@ fig_temp.add_annotation(
 
 # Draw the chart full width
 st.plotly_chart(fig_temp, use_container_width=True)
+
+# ---> THIS SHOULD BE THE ABSOLUTE END OF YOUR FILE <---
     
 # Check if a dot was clicked, and update the dashboard if so!
 if map_event and len(map_event.selection.get("points", [])) > 0:
