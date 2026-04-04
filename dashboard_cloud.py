@@ -120,6 +120,7 @@ st.sidebar.divider()
 st.sidebar.subheader("Regional Map")
 
 map_df = past_df[past_df['Timestamp'] == latest_actual_time]
+
 fig_map = px.scatter_mapbox(
     map_df, lat="Lat", lon="Lon", hover_name="City", custom_data=["City"],
     hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False, "City": False},
@@ -129,7 +130,21 @@ fig_map = px.scatter_mapbox(
     center={"lat": 19.0, "lon": 96.0}, 
     height=450 
 )
-fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0})
+
+
+# Shrink margins and move the color bar to the bottom horizontally
+fig_map.update_layout(
+    mapbox_style="open-street-map", 
+    margin={"r":0,"t":0,"l":0,"b":0},
+    coloraxis_colorbar=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.1,      # Pushes the bar just below the map
+        xanchor="center",
+        x=0.5,
+        thickness=10 # Makes the bar thinner to save space
+    )
+)
 
 map_event = st.sidebar.plotly_chart(fig_map, use_container_width=True, on_select="rerun")
 
