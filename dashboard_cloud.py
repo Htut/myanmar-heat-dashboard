@@ -110,35 +110,36 @@ elif latest_city_data['Heat Index'] >= threshold - 5:
     st.warning(f"⚠️ **HEAT ADVISORY:** The Heat Index in {selected_city} is elevating ({latest_city_data['Heat Index']:.1f} {temp_unit}).")
 
 
-# --- 4. THE HEAT MAP ---
-st.subheader("Regional Temperature Map (Latest Hour)")
-latest_time = display_df['Timestamp'].max()
-map_df = display_df[display_df['Timestamp'] == latest_time]
-
-fig_map = px.scatter_mapbox(
-    map_df, lat="Lat", lon="Lon", hover_name="City", 
-    hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False},
-    color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
-    size_max=15, 
-    zoom=4.8, # Perfect zoom level for the region
-    center={"lat": 19.0, "lon": 96.0}, # Centers the camera right on Myanmar
-    height=650, # Forces the map to be tall
-    title=f"Heat Map as of {latest_time.strftime('%H:%M')}"
-)
-
-# Reduces the empty margins around the map so it fits better
-fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
-
-# To stop it from taking up the entire screen width, we can put it inside a column
-col_map, col_space = st.columns([2, 1]) # Makes the map take up 2/3 of the screen, leaving 1/3 empty
-with col_map:
-    st.plotly_chart(fig_map, use_container_width=True)
-
 st.divider()
 
-# --- 5. CHARTS ---
-st.subheader(f"Trend Lines for {selected_city}")
-fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
-                   color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
-fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
-st.plotly_chart(fig_temp, use_container_width=True)
+# --- 4 & 5. COMMAND CENTER LAYOUT (Side-by-Side) ---
+# Create two columns of equal width
+col_left, col_right = st.columns([1, 1])
+
+# Put the Map in the Left Column
+with col_left:
+    st.subheader("Regional Temperature Map")
+    latest_time = display_df['Timestamp'].max()
+    map_df = display_df[display_df['Timestamp'] == latest_time]
+
+    fig_map = px.scatter_mapbox(
+        map_df, lat="Lat", lon="Lon", hover_name="City", 
+        hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False},
+        color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
+        size_max=15, 
+        zoom=4.8, # Perfect zoom for Myanmar
+        center={"lat": 19.0, "lon": 96.0}, # Centered on the country
+        height=650, # Forces the map to be tall
+        title=f"Heat Map as of {latest_time.strftime('%H:%M')}"
+    )
+    # Shrink the map margins so it fits the column cleanly
+    fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
+    st.plotly_chart(fig_map, use_container_width=True)
+
+# Put the Charts in the Right Column
+with col_right:
+    st.subheader(f"Trend Lines for {selected_city}")
+    fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
+                       color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
+    fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
+    st.plotly_chart(fig_temp, use_container_width=True)
