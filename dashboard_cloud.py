@@ -143,7 +143,15 @@ fig_map = px.scatter_mapbox(
 )
 fig_map.update_layout(
     mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
-    coloraxis_colorbar=dict(orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5, thickness=10)
+    coloraxis_colorbar=dict(
+        orientation="h", 
+        yanchor="top", 
+        y=-0.1, 
+        xanchor="center", 
+        x=0.5, 
+        thickness=10,
+        len=0.9  # <--- This is the new setting that makes it wider
+    )
 )
 map_event = st.sidebar.plotly_chart(fig_map, use_container_width=True, on_select="rerun")
 
