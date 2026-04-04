@@ -60,6 +60,7 @@ def load_data():
                 })
         except Exception as e:
             st.error(f"Failed to load data for {city_name}")
+            time.sleep(1)
             
     df = pd.DataFrame(all_data)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
