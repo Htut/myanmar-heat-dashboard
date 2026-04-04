@@ -128,7 +128,7 @@ fig_map = px.scatter_mapbox(
     size_max=12, 
     zoom=4.0, 
     center={"lat": 19.0, "lon": 96.0}, 
-    height=450 
+    height=550
 )
 
 
