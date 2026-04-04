@@ -98,6 +98,17 @@ col3.metric("Humidity", f"{latest_city_data['Humidity']:.0f} %")
 col4.metric("Last Updated", latest_city_data['Timestamp'].strftime("%Y-%m-%d %H:%M"))
 
 st.divider()
+# Check if the latest Heat Index is dangerously high
+dangerous_temp_c = 40.0
+
+# Adjust threshold if Fahrenheit is toggled
+threshold = (dangerous_temp_c * 9/5) + 32 if use_fahrenheit else dangerous_temp_c
+
+if latest_city_data['Heat Index'] >= threshold:
+    st.error(f"⚠️ **EXTREME HEAT WARNING:** The Heat Index in {selected_city} is currently {latest_city_data['Heat Index']:.1f} {temp_unit}. Please take precautions.")
+elif latest_city_data['Heat Index'] >= threshold - 5:
+    st.warning(f"⚠️ **HEAT ADVISORY:** The Heat Index in {selected_city} is elevating ({latest_city_data['Heat Index']:.1f} {temp_unit}).")
+
 
 # --- 4. THE HEAT MAP ---
 st.subheader("Regional Temperature Map (Latest Hour)")
@@ -108,10 +119,20 @@ fig_map = px.scatter_mapbox(
     map_df, lat="Lat", lon="Lon", hover_name="City", 
     hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False},
     color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
-    size_max=15, zoom=4.5, title=f"Heat Map as of {latest_time.strftime('%H:%M')}"
+    size_max=15, 
+    zoom=4.8, # Perfect zoom level for the region
+    center={"lat": 19.0, "lon": 96.0}, # Centers the camera right on Myanmar
+    height=650, # Forces the map to be tall
+    title=f"Heat Map as of {latest_time.strftime('%H:%M')}"
 )
-fig_map.update_layout(mapbox_style="open-street-map")
-st.plotly_chart(fig_map, use_container_width=True)
+
+# Reduces the empty margins around the map so it fits better
+fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
+
+# To stop it from taking up the entire screen width, we can put it inside a column
+col_map, col_space = st.columns([2, 1]) # Makes the map take up 2/3 of the screen, leaving 1/3 empty
+with col_map:
+    st.plotly_chart(fig_map, use_container_width=True)
 
 st.divider()
 
