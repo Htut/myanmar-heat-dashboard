@@ -282,29 +282,46 @@ with tab_energy:
     fig_solar.add_annotation(x=latest_actual_time, y=1, yref="paper", text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12))
     st.plotly_chart(fig_solar, use_container_width=True)
 
-# --- ADDED: TAB 5: Seismic Activity ---
+# --- TAB 5: Seismic Activity ---
 with tab_seismic:
-    st.markdown("**Live Regional Seismic Activity (USGS Data - M3.5+)**")
+    st.markdown("**Live Regional Seismic Activity (USGS Data - Past 30 Days)**")
     
     if "eq_df" in st.session_state and not st.session_state.eq_df.empty:
         eq_df = st.session_state.eq_df
         
-        # Plot earthquakes using Plotly Mapbox
-        fig_eq = px.scatter_mapbox(
-            eq_df, lat="Lat", lon="Lon", hover_name="Place",
-            hover_data={"Magnitude": True, "Time": True, "Depth": True, "Lat": False, "Lon": False},
-            color="Magnitude", color_continuous_scale=px.colors.sequential.YlOrRd,
-            size="Magnitude", size_max=15,
-            zoom=4.5, center={"lat": 19.0, "lon": 96.0}, height=500
+        # ADDED: Magnitude Range Filter
+        mag_range = st.slider(
+            "Filter by Magnitude Range:", 
+            min_value=3.5, 
+            max_value=9.0, 
+            value=(3.5, 9.0), # Default shows everything
+            step=0.1,
+            help="Adjust to filter out minor tremors."
         )
-        fig_eq.update_layout(
-            mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
-            coloraxis_colorbar=dict(title="Mag", thickness=10)
-        )
-        st.plotly_chart(fig_eq, use_container_width=True)
         
-        # Show a summary table of the most recent events
-        st.markdown("**Recent Events:**")
-        st.dataframe(eq_df[['Time', 'Place', 'Magnitude', 'Depth']].head(5), use_container_width=True)
+        # Apply the filter
+        filtered_eq_df = eq_df[(eq_df['Magnitude'] >= mag_range[0]) & (eq_df['Magnitude'] <= mag_range[1])]
+        
+        if not filtered_eq_df.empty:
+            # Plot earthquakes using Plotly Mapbox
+            fig_eq = px.scatter_mapbox(
+                filtered_eq_df, lat="Lat", lon="Lon", hover_name="Place",
+                hover_data={"Magnitude": True, "Time": True, "Depth": True, "Lat": False, "Lon": False},
+                color="Magnitude", color_continuous_scale=px.colors.sequential.YlOrRd,
+                size="Magnitude", size_max=15,
+                zoom=4.5, center={"lat": 19.0, "lon": 96.0}, height=500
+            )
+            fig_eq.update_layout(
+                mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
+                coloraxis_colorbar=dict(title="Mag", thickness=10)
+            )
+            st.plotly_chart(fig_eq, use_container_width=True)
+            
+            # Show a summary table of the most recent events
+            st.markdown(f"**Recent Events (M{mag_range[0]} - M{mag_range[1]}):**")
+            st.dataframe(filtered_eq_df[['Time', 'Place', 'Magnitude', 'Depth']].head(5), use_container_width=True)
+        else:
+            st.info(f"No earthquakes found within magnitude {mag_range[0]} to {mag_range[1]} in the past 30 days.")
+            
     else:
         st.info("No recent significant seismic activity found in the region, or data is still loading.")
