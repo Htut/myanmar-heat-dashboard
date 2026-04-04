@@ -86,6 +86,28 @@ def load_data():
     # Air Quality forecast sometimes drops off a day early; this cleanly fills the gaps
     df['US AQI'] = df['US AQI'].ffill().bfill()
     df['PM2.5'] = df['PM2.5'].ffill().bfill()
+
+    # --- ADDED: LIVE USGS SEISMIC DATA ---
+    eq_url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2024-03-01&minmagnitude=3.5&minlatitude=9.0&maxlatitude=29.0&minlongitude=92.0&maxlongitude=102.0"
+    try:
+        eq_resp = requests.get(eq_url).json()
+        eq_data = []
+        for feature in eq_resp.get('features', []):
+            coords = feature['geometry']['coordinates']
+            props = feature['properties']
+            eq_data.append({
+                "Place": props['place'],
+                "Magnitude": props['mag'],
+                "Time": pd.to_datetime(props['time'], unit='ms').tz_localize('UTC').tz_convert('Asia/Yangon').strftime('%Y-%m-%d %H:%M'),
+                "Lat": coords[1],
+                "Lon": coords[0],
+                "Depth": coords[2]
+            })
+        # Save earthquake data into Streamlit's session state so it can be used anywhere
+        st.session_state.eq_df = pd.DataFrame(eq_data)
+    except Exception as e:
+        st.error("Failed to load live seismic data.")
+        st.session_state.eq_df = pd.DataFrame() # Empty dataframe on failure
     
     return df
 
@@ -141,6 +163,7 @@ fig_map = px.scatter_mapbox(
     color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
     size_max=12, zoom=3.5, center={"lat": 19.0, "lon": 96.0}, height=600 
 )
+
 fig_map.update_layout(
     mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
     coloraxis_colorbar=dict(
@@ -210,8 +233,10 @@ st.divider()
 
 # --- 4. MAIN LAYOUT (Interactive Forecasting Tabs) ---
 st.subheader(f"14-Day Trend & Forecast for {active_city}")
-
-tab_heat, tab_storm, tab_health, tab_energy = st.tabs(["🌡️ Thermal Dynamics", "🌪️ Storm Warning", "😷 Health & Safety", "⚡ Energy & Solar"])
+# UPDATED: Added the fifth tab for Seismic Activity
+tab_heat, tab_storm, tab_health, tab_energy, tab_seismic = st.tabs([
+    "🌡️ Thermal Dynamics", "🌪️ Storm Warning", "😷 Health & Safety", "⚡ Energy & Solar", "🌍 Seismic Activity"
+])
 
 with tab_heat:
     fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
@@ -256,3 +281,30 @@ with tab_energy:
     fig_solar.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
     fig_solar.add_annotation(x=latest_actual_time, y=1, yref="paper", text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12))
     st.plotly_chart(fig_solar, use_container_width=True)
+
+# --- ADDED: TAB 5: Seismic Activity ---
+with tab_seismic:
+    st.markdown("**Live Regional Seismic Activity (USGS Data - M3.5+)**")
+    
+    if "eq_df" in st.session_state and not st.session_state.eq_df.empty:
+        eq_df = st.session_state.eq_df
+        
+        # Plot earthquakes using Plotly Mapbox
+        fig_eq = px.scatter_mapbox(
+            eq_df, lat="Lat", lon="Lon", hover_name="Place",
+            hover_data={"Magnitude": True, "Time": True, "Depth": True, "Lat": False, "Lon": False},
+            color="Magnitude", color_continuous_scale=px.colors.sequential.YlOrRd,
+            size="Magnitude", size_max=15,
+            zoom=4.5, center={"lat": 19.0, "lon": 96.0}, height=500
+        )
+        fig_eq.update_layout(
+            mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
+            coloraxis_colorbar=dict(title="Mag", thickness=10)
+        )
+        st.plotly_chart(fig_eq, use_container_width=True)
+        
+        # Show a summary table of the most recent events
+        st.markdown("**Recent Events:**")
+        st.dataframe(eq_df[['Time', 'Place', 'Magnitude', 'Depth']].head(5), use_container_width=True)
+    else:
+        st.info("No recent significant seismic activity found in the region, or data is still loading.")
