@@ -166,34 +166,34 @@ if latest_city_data['Heat Index'] >= threshold:
 elif latest_city_data['Heat Index'] >= threshold - 5:
     st.warning(f"⚠️ **HEAT ADVISORY:** The Heat Index in {active_city} is elevating ({latest_city_data['Heat Index']:.1f} {temp_unit}).")
 
-    st.divider()
+st.divider()
 
-    # --- 4. MAIN LAYOUT (Full-Width Chart) ---
-    st.subheader(f"14-Day Trend & Forecast for {active_city}")
-    fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
-                    color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
-    fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
+# --- 4. MAIN LAYOUT (Full-Width Chart) ---
+st.subheader(f"14-Day Trend & Forecast for {active_city}")
+fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
+                   color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
+fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
 
-    fig_temp.update_layout(
-        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5, title=None),
-        margin=dict(b=80) 
-    )
+fig_temp.update_layout(
+    legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5, title=None),
+    margin=dict(b=80) 
+)
 
-    fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
-    fig_temp.add_annotation(
-        x=latest_actual_time, y=1, yref="paper", 
-        text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12)
-    )
+fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+fig_temp.add_annotation(
+    x=latest_actual_time, y=1, yref="paper", 
+    text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12)
+)
 
-    # Draw the chart full width
-    st.plotly_chart(fig_temp, use_container_width=True)
+# Draw the chart full width
+st.plotly_chart(fig_temp, use_container_width=True)
     
-    # Check if a dot was clicked, and update the dashboard if so!
-    if map_event and len(map_event.selection.get("points", [])) > 0:
-        clicked_city = map_event.selection["points"][0]["customdata"][0]
-        if clicked_city != st.session_state.selected_city:
-            st.session_state.selected_city = clicked_city
-            st.rerun()
+# Check if a dot was clicked, and update the dashboard if so!
+if map_event and len(map_event.selection.get("points", [])) > 0:
+    clicked_city = map_event.selection["points"][0]["customdata"][0]
+    if clicked_city != st.session_state.selected_city:
+        st.session_state.selected_city = clicked_city
+        st.rerun()
 
     #with col_right:
     st.subheader(f"14-Day Trend & Forecast for {active_city}")
