@@ -181,21 +181,49 @@ elif latest_city_data['Heat Index'] >= threshold - 5:
 
 st.divider()
 
-# --- 4. MAIN LAYOUT (Full-Width Chart) ---
+# --- 4. MAIN LAYOUT (Interactive Forecasting Tabs) ---
 st.subheader(f"14-Day Trend & Forecast for {active_city}")
-fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
-                   color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
-fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
 
-fig_temp.update_layout(
-    legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5, title=None),
-    margin=dict(b=80) 
-)
+# Create three professional tabs to organize the data
+tab_heat, tab_wind, tab_rain_uv = st.tabs(["🌡️ Thermal Dynamics", "💨 Wind & Storms", "☔ Precipitation & UV"])
 
-fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
-fig_temp.add_annotation(
-    x=latest_actual_time, y=1, yref="paper", 
-    text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12)
-)
+# --- TAB 1: Heat & Temperature (Your original chart) ---
+with tab_heat:
+    fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
+                       color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
+    fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
+    fig_temp.update_layout(legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5, title=None), margin=dict(b=80))
+    
+    fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    fig_temp.add_annotation(x=latest_actual_time, y=1, yref="paper", text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12))
+    
+    st.plotly_chart(fig_temp, use_container_width=True)
 
-st.plotly_chart(fig_temp, use_container_width=True)
+# --- TAB 2: Wind Gusts ---
+with tab_wind:
+    fig_wind = px.line(city_df, x='Timestamp', y='Wind Gusts', color_discrete_sequence=['#008080'])
+    fig_wind.update_traces(line=dict(width=3))
+    fig_wind.update_layout(yaxis_title="Wind Gusts (km/h)", showlegend=False)
+    
+    fig_wind.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    fig_wind.add_annotation(x=latest_actual_time, y=1, yref="paper", text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12))
+    
+    st.plotly_chart(fig_wind, use_container_width=True)
+
+# --- TAB 3: Precipitation & UV Index ---
+with tab_rain_uv:
+    # We stack these two vertically inside the tab since they are closely related to outdoor conditions
+    fig_precip = px.bar(city_df, x='Timestamp', y='Precipitation', color_discrete_sequence=['#1f77b4'])
+    fig_precip.update_layout(yaxis_title="Precipitation (mm)", showlegend=False, height=350)
+    fig_precip.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    
+    fig_uv = px.line(city_df, x='Timestamp', y='UV Index', color_discrete_sequence=['#ff7f0e'])
+    fig_uv.update_traces(line=dict(width=3))
+    fig_uv.update_layout(yaxis_title="UV Index", showlegend=False, height=350)
+    fig_uv.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    
+    # Draw both charts in this tab
+    st.plotly_chart(fig_precip, use_container_width=True)
+    st.plotly_chart(fig_uv, use_container_width=True)
+
+# ---> THIS SHOULD BE THE ABSOLUTE END OF YOUR FILE <---
