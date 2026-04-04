@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests
+import time
 
 st.set_page_config(page_title="Regional Heat Monitor", layout="wide")
 
@@ -34,9 +35,7 @@ def load_data():
     }
     
     all_data = []
-    
     for city_name, coords in CITIES.items():
-        # UPDATED: forecast_days=7 to pull the future week
         URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature&timezone=Asia%2FYangon"
         try:
             response = requests.get(URL)
@@ -60,8 +59,9 @@ def load_data():
                 })
         except Exception as e:
             st.error(f"Failed to load data for {city_name}")
-            time.sleep(1)
             
+        time.sleep(1) # Prevents API blocking
+        
     df = pd.DataFrame(all_data)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     return df
@@ -77,24 +77,39 @@ if use_fahrenheit:
     display_df['Heat Index'] = (display_df['Heat Index'] * 9/5) + 32
     temp_unit = "°F"
 
-# --- TIME LOGIC: Separate past/current from future forecast ---
-# Calculate current Myanmar time (Cloud servers run on UTC, so we add 6.5 hours)
+# --- TIME LOGIC ---
 current_mm_time = pd.Timestamp.utcnow() + pd.Timedelta(hours=6.5)
-current_mm_time = current_mm_time.tz_localize(None) # Match timezone-naive CSV data
-
-# Filter data to only show up to the current hour for metrics and the map
+current_mm_time = current_mm_time.tz_localize(None)
 past_df = display_df[display_df['Timestamp'] <= current_mm_time]
 latest_actual_time = past_df['Timestamp'].max()
 
-# --- 2. THE SIDEBAR ---
+# --- 2. SESSION STATE & SIDEBAR ---
+# Initialize session state so the app remembers the clicked city
+if "selected_city" not in st.session_state:
+    st.session_state.selected_city = "Mandalay"
+
 st.sidebar.header("Filter Options")
 city_list = display_df['City'].unique()
-selected_city = st.sidebar.selectbox("Select a City to View Trends:", city_list)
 
-city_df = display_df[display_df['City'] == selected_city].copy()
+# The sidebar dropdown now syncs with the session state
+sidebar_city = st.sidebar.selectbox(
+    "Select a City to View Trends:", 
+    city_list, 
+    index=list(city_list).index(st.session_state.selected_city)
+)
+
+# Update state if user manually changes the dropdown
+if sidebar_city != st.session_state.selected_city:
+    st.session_state.selected_city = sidebar_city
+    st.rerun()
+
+# Use the globally selected city for the rest of the app
+active_city = st.session_state.selected_city
+
+city_df = display_df[display_df['City'] == active_city].copy()
 city_df['Daily Trend'] = city_df['Temperature'].rolling(window=24, min_periods=1, center=True).mean()
 
-# NEW: The Download Button
+# The Download Button
 st.sidebar.divider()
 st.sidebar.subheader("Data Export")
 csv_data = display_df.to_csv(index=False).encode('utf-8')
@@ -102,13 +117,11 @@ st.sidebar.download_button(
     label="📥 Download Full Dataset (CSV)",
     data=csv_data,
     file_name=f"regional_heat_forecast_{current_mm_time.strftime('%Y%m%d')}.csv",
-    mime="text/csv",
-    help="Download the past 7 days and future 7 days of hourly data."
+    mime="text/csv"
 )
 
 # --- 3. CURRENT METRICS ---
-st.subheader(f"Current Conditions in {selected_city}")
-# Ensure metrics only pull from actual current data, not the forecast
+st.subheader(f"Current Conditions in {active_city}")
 past_city_df = city_df[city_df['Timestamp'] <= current_mm_time]
 latest_city_data = past_city_df.iloc[-1]
 
@@ -124,52 +137,63 @@ dangerous_temp_c = 40.0
 threshold = (dangerous_temp_c * 9/5) + 32 if use_fahrenheit else dangerous_temp_c
 
 if latest_city_data['Heat Index'] >= threshold:
-    st.error(f"⚠️ **EXTREME HEAT WARNING:** The Heat Index in {selected_city} is currently {latest_city_data['Heat Index']:.1f} {temp_unit}. Please take precautions.")
+    st.error(f"⚠️ **EXTREME HEAT WARNING:** The Heat Index in {active_city} is currently {latest_city_data['Heat Index']:.1f} {temp_unit}. Please take precautions.")
 elif latest_city_data['Heat Index'] >= threshold - 5:
-    st.warning(f"⚠️ **HEAT ADVISORY:** The Heat Index in {selected_city} is elevating ({latest_city_data['Heat Index']:.1f} {temp_unit}).")
+    st.warning(f"⚠️ **HEAT ADVISORY:** The Heat Index in {active_city} is elevating ({latest_city_data['Heat Index']:.1f} {temp_unit}).")
 
 st.divider()
 
-# --- 4 & 5. COMMAND CENTER LAYOUT (Side-by-Side) ---
+# --- 4 & 5. COMMAND CENTER LAYOUT ---
 col_left, col_right = st.columns([1, 1])
 
 with col_left:
     st.subheader("Regional Temperature Map")
-    # Map strictly uses the 'latest_actual_time' so it doesn't map the future
     map_df = past_df[past_df['Timestamp'] == latest_actual_time]
 
+    # UPDATED: Added custom_data=["City"] so Plotly can pass the city name when clicked
     fig_map = px.scatter_mapbox(
-        map_df, lat="Lat", lon="Lon", hover_name="City", 
-        hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False},
+        map_df, lat="Lat", lon="Lon", hover_name="City", custom_data=["City"],
+        hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False, "City": False},
         color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
-        size_max=15, 
-        zoom=4.8, 
-        center={"lat": 19.0, "lon": 96.0}, 
-        height=650, 
+        size_max=15, zoom=4.8, center={"lat": 19.0, "lon": 96.0}, height=650, 
         title=f"Heat Map as of {latest_actual_time.strftime('%H:%M')}"
     )
     fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
-    st.plotly_chart(fig_map, use_container_width=True)
+    
+    # UPDATED: Map now listens for click events
+    map_event = st.plotly_chart(fig_map, use_container_width=True, on_select="rerun")
+    
+    # Check if a dot was clicked, and update the dashboard if so!
+    if map_event and len(map_event.selection.get("points", [])) > 0:
+        clicked_city = map_event.selection["points"][0]["customdata"][0]
+        if clicked_city != st.session_state.selected_city:
+            st.session_state.selected_city = clicked_city
+            st.rerun()
 
 with col_right:
-    st.subheader(f"14-Day Trend & Forecast for {selected_city}")
+    st.subheader(f"14-Day Trend & Forecast for {active_city}")
     fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
                        color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
     fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
     
-    # NEW: Add a vertical line to show where "Now" is
-    # 1. Draw the dashed line (without text to prevent the Plotly math crash)
-    fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    # UPDATED: Moved the legend horizontally below the chart timestamp
+    fig_temp.update_layout(
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.3, # Pushes it safely below the x-axis dates
+            xanchor="center",
+            x=0.5,
+            title=None # Removes the "variable" title
+        ),
+        margin=dict(b=80) # Adds extra space at the bottom so the legend isn't cut off
+    )
     
-    # 2. Add the text label separately
+    # Crash-proof forecast line
+    fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
     fig_temp.add_annotation(
-        x=latest_actual_time, 
-        y=1, 
-        yref="paper", # Pins the text to the top of the chart frame
-        text=" Forecast Begins ➔", 
-        showarrow=False, 
-        xanchor="left",
-        font=dict(color="gray", size=12)
+        x=latest_actual_time, y=1, yref="paper", 
+        text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12)
     )
     
     st.plotly_chart(fig_temp, use_container_width=True)
