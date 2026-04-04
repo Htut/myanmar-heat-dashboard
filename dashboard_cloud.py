@@ -36,8 +36,8 @@ def load_data():
     
     all_data = []
     for city_name, coords in CITIES.items():
-        # UPDATED: Added precipitation, wind_gusts_10m, and uv_index to the URL
-        URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index&timezone=Asia%2FYangon"
+        # UPDATED: Added shortwave_radiation and cloud_cover
+        URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover&timezone=Asia%2FYangon"
         try:
             response = requests.get(URL)
             data = response.json()
@@ -49,6 +49,8 @@ def load_data():
             precips = data['hourly']['precipitation']
             gusts = data['hourly']['wind_gusts_10m']
             uvs = data['hourly']['uv_index']
+            rads = data['hourly']['shortwave_radiation']
+            clouds = data['hourly']['cloud_cover']
             
             for i in range(len(times)):
                 formatted_time = times[i].replace("T", " ") + ":00"
@@ -61,6 +63,8 @@ def load_data():
                     "Precipitation": precips[i],
                     "Wind Gusts": gusts[i],
                     "UV Index": uvs[i],
+                    "Solar Radiation": rads[i],
+                    "Cloud Cover": clouds[i],
                     "Lat": coords['lat'],
                     "Lon": coords['lon']
                 })
@@ -97,11 +101,7 @@ if "selected_city" not in st.session_state:
 st.sidebar.header("Filter Options")
 city_list = display_df['City'].unique()
 
-sidebar_city = st.sidebar.selectbox(
-    "Select a City to View Trends:", 
-    city_list, 
-    index=list(city_list).index(st.session_state.selected_city)
-)
+sidebar_city = st.sidebar.selectbox("Select a City to View Trends:", city_list, index=list(city_list).index(st.session_state.selected_city))
 
 if sidebar_city != st.session_state.selected_city:
     st.session_state.selected_city = sidebar_city
@@ -111,15 +111,13 @@ active_city = st.session_state.selected_city
 city_df = display_df[display_df['City'] == active_city].copy()
 city_df['Daily Trend'] = city_df['Temperature'].rolling(window=24, min_periods=1, center=True).mean()
 
+# CALCULATE CUSTOM SOLAR YIELD (8 panels * 590W = 4.72 kW capacity, assuming 75% system efficiency)
+city_df['Est Solar Yield (kW)'] = (city_df['Solar Radiation'] / 1000) * 4.72 * 0.75
+
 st.sidebar.divider()
 st.sidebar.subheader("Data Export")
 csv_data = display_df.to_csv(index=False).encode('utf-8')
-st.sidebar.download_button(
-    label="📥 Download Full Dataset (CSV)",
-    data=csv_data,
-    file_name=f"regional_weather_{current_mm_time.strftime('%Y%m%d')}.csv",
-    mime="text/csv"
-)
+st.sidebar.download_button(label="📥 Download Full Dataset (CSV)", data=csv_data, file_name=f"regional_weather_{current_mm_time.strftime('%Y%m%d')}.csv", mime="text/csv")
 
 # --- THE SIDEBAR MAP ---
 st.sidebar.divider()
@@ -130,17 +128,12 @@ fig_map = px.scatter_mapbox(
     map_df, lat="Lat", lon="Lon", hover_name="City", custom_data=["City"],
     hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False, "City": False},
     color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
-    size_max=12, 
-    zoom=3.5, 
-    center={"lat": 19.0, "lon": 96.0}, 
-    height=600 
+    size_max=12, zoom=3.5, center={"lat": 19.0, "lon": 96.0}, height=600 
 )
 fig_map.update_layout(
-    mapbox_style="open-street-map", 
-    margin={"r":0,"t":0,"l":0,"b":0},
+    mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
     coloraxis_colorbar=dict(orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5, thickness=10)
 )
-
 map_event = st.sidebar.plotly_chart(fig_map, use_container_width=True, on_select="rerun")
 
 if map_event and len(map_event.selection.get("points", [])) > 0:
@@ -154,20 +147,26 @@ st.subheader(f"Current Conditions in {active_city}")
 past_city_df = city_df[city_df['Timestamp'] <= current_mm_time]
 latest_city_data = past_city_df.iloc[-1]
 
-# Primary Metrics Row
+# Primary Metrics
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Temperature", f"{latest_city_data['Temperature']:.1f} {temp_unit}")
 col2.metric("Feels Like (Heat Index)", f"{latest_city_data['Heat Index']:.1f} {temp_unit}")
 col3.metric("Humidity", f"{latest_city_data['Humidity']:.0f} %")
 col4.metric("Last Updated", latest_city_data['Timestamp'].strftime("%Y-%m-%d %H:%M"))
 
-# Operational Threat Metrics Row
+# Operational Threat Metrics
 st.markdown("###### Operational Threats (Current Hour)")
 col5, col6, col7, col8 = st.columns(4)
 col5.metric("Precipitation", f"{latest_city_data['Precipitation']:.1f} mm")
 col6.metric("Wind Gusts", f"{latest_city_data['Wind Gusts']:.1f} km/h")
 col7.metric("UV Index", f"{latest_city_data['UV Index']:.1f}")
-col8.empty() # Placeholder to keep the columns aligned evenly
+
+# Energy & Infrastructure Metrics
+st.markdown("###### Energy Infrastructure (Current Hour)")
+col9, col10, col11, col12 = st.columns(4)
+col9.metric("Cloud Cover", f"{latest_city_data['Cloud Cover']:.0f} %")
+col10.metric("Solar Radiation", f"{latest_city_data['Solar Radiation']:.0f} W/m²")
+col11.metric("Est. Solar Yield (8x 590W)", f"{latest_city_data['Est Solar Yield (kW)']:.2f} kW")
 
 st.divider()
 
@@ -184,19 +183,16 @@ st.divider()
 # --- 4. MAIN LAYOUT (Interactive Forecasting Tabs) ---
 st.subheader(f"14-Day Trend & Forecast for {active_city}")
 
-# Create three professional tabs to organize the data
-tab_heat, tab_wind, tab_rain_uv = st.tabs(["🌡️ Thermal Dynamics", "💨 Wind & Storms", "☔ Precipitation & UV"])
+tab_heat, tab_wind, tab_rain_uv, tab_energy = st.tabs(["🌡️ Thermal Dynamics", "💨 Wind & Storms", "☔ Precipitation & UV", "⚡ Energy & Solar"])
 
-# --- TAB 1: Heat & Temperature (Your original chart) ---
+# --- TAB 1: Heat & Temperature ---
 with tab_heat:
     fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
                        color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
     fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
     fig_temp.update_layout(legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5, title=None), margin=dict(b=80))
-    
     fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
     fig_temp.add_annotation(x=latest_actual_time, y=1, yref="paper", text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12))
-    
     st.plotly_chart(fig_temp, use_container_width=True)
 
 # --- TAB 2: Wind Gusts ---
@@ -204,15 +200,12 @@ with tab_wind:
     fig_wind = px.line(city_df, x='Timestamp', y='Wind Gusts', color_discrete_sequence=['#008080'])
     fig_wind.update_traces(line=dict(width=3))
     fig_wind.update_layout(yaxis_title="Wind Gusts (km/h)", showlegend=False)
-    
     fig_wind.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
     fig_wind.add_annotation(x=latest_actual_time, y=1, yref="paper", text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12))
-    
     st.plotly_chart(fig_wind, use_container_width=True)
 
 # --- TAB 3: Precipitation & UV Index ---
 with tab_rain_uv:
-    # We stack these two vertically inside the tab since they are closely related to outdoor conditions
     fig_precip = px.bar(city_df, x='Timestamp', y='Precipitation', color_discrete_sequence=['#1f77b4'])
     fig_precip.update_layout(yaxis_title="Precipitation (mm)", showlegend=False, height=350)
     fig_precip.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
@@ -222,8 +215,16 @@ with tab_rain_uv:
     fig_uv.update_layout(yaxis_title="UV Index", showlegend=False, height=350)
     fig_uv.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
     
-    # Draw both charts in this tab
     st.plotly_chart(fig_precip, use_container_width=True)
     st.plotly_chart(fig_uv, use_container_width=True)
 
-# ---> THIS SHOULD BE THE ABSOLUTE END OF YOUR FILE <---
+# --- TAB 4: Energy & Solar ---
+with tab_energy:
+    st.markdown("**Estimated System Generation Profile (4.72 kW Setup)**")
+    
+    fig_solar = px.area(city_df, x='Timestamp', y='Est Solar Yield (kW)', color_discrete_sequence=['#FFD700'])
+    fig_solar.update_layout(yaxis_title="Power Output (kW)", showlegend=False)
+    fig_solar.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    fig_solar.add_annotation(x=latest_actual_time, y=1, yref="paper", text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12))
+    
+    st.plotly_chart(fig_solar, use_container_width=True)
