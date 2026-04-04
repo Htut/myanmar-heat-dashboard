@@ -284,29 +284,54 @@ with tab_energy:
 
 # --- TAB 5: Seismic Activity ---
 with tab_seismic:
-    st.markdown("**Live Regional Seismic Activity (USGS Data - Past 30 Days)**")
+    st.markdown("**Live Regional Seismic Activity (USGS Data)**")
     
     if "eq_df" in st.session_state and not st.session_state.eq_df.empty:
         eq_df = st.session_state.eq_df
         
-        # ADDED: Magnitude Range Filter
-        mag_range = st.slider(
-            "Filter by Magnitude Range:", 
-            min_value=3.5, 
-            max_value=9.0, 
-            value=(3.5, 9.0), # Default shows everything
-            step=0.1,
-            help="Adjust to filter out minor tremors."
-        )
+        # Convert the string timestamps into actual date objects for the filter logic
+        eq_df['DateObj'] = pd.to_datetime(eq_df['Time']).dt.date
+        min_date = eq_df['DateObj'].min()
+        max_date = eq_df['DateObj'].max()
         
-        # Apply the filter
-        filtered_eq_df = eq_df[(eq_df['Magnitude'] >= mag_range[0]) & (eq_df['Magnitude'] <= mag_range[1])]
+        # Create side-by-side columns to keep the UI clean
+        col_filter1, col_filter2 = st.columns(2)
+        
+        with col_filter1:
+            mag_range = st.slider(
+                "Filter by Magnitude Range:", 
+                min_value=3.5, max_value=9.0, value=(3.5, 9.0), step=0.1
+            )
+            
+        with col_filter2:
+            # Add the date range picker
+            selected_dates = st.date_input(
+                "Filter by Date Range:",
+                value=(min_date, max_date),
+                min_value=min_date,
+                max_value=max_date
+            )
+            
+        # Safely handle the date input (it returns a tuple of either 1 or 2 dates depending on user clicks)
+        if len(selected_dates) == 2:
+            start_date, end_date = selected_dates
+        else:
+            start_date = selected_dates[0]
+            end_date = selected_dates[0]
+        
+        # Apply BOTH the magnitude and the date filters
+        filtered_eq_df = eq_df[
+            (eq_df['Magnitude'] >= mag_range[0]) & 
+            (eq_df['Magnitude'] <= mag_range[1]) &
+            (eq_df['DateObj'] >= start_date) &
+            (eq_df['DateObj'] <= end_date)
+        ]
         
         if not filtered_eq_df.empty:
-            # Plot earthquakes using Plotly Mapbox
+            # Plot filtered earthquakes
             fig_eq = px.scatter_mapbox(
                 filtered_eq_df, lat="Lat", lon="Lon", hover_name="Place",
-                hover_data={"Magnitude": True, "Time": True, "Depth": True, "Lat": False, "Lon": False},
+                hover_data={"Magnitude": True, "Time": True, "Depth": True, "Lat": False, "Lon": False, "DateObj": False},
                 color="Magnitude", color_continuous_scale=px.colors.sequential.YlOrRd,
                 size="Magnitude", size_max=15,
                 zoom=4.5, center={"lat": 19.0, "lon": 96.0}, height=500
@@ -317,11 +342,11 @@ with tab_seismic:
             )
             st.plotly_chart(fig_eq, use_container_width=True)
             
-            # Show a summary table of the most recent events
-            st.markdown(f"**Recent Events (M{mag_range[0]} - M{mag_range[1]}):**")
+            # Show a dynamically updating summary table
+            st.markdown(f"**Recent Events ({start_date.strftime('%b %d')} to {end_date.strftime('%b %d')} | M{mag_range[0]} - M{mag_range[1]}):**")
             st.dataframe(filtered_eq_df[['Time', 'Place', 'Magnitude', 'Depth']].head(5), use_container_width=True)
         else:
-            st.info(f"No earthquakes found within magnitude {mag_range[0]} to {mag_range[1]} in the past 30 days.")
+            st.info("No earthquakes match the selected magnitude and date filters.")
             
     else:
         st.info("No recent significant seismic activity found in the region, or data is still loading.")
