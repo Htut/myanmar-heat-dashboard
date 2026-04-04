@@ -36,7 +36,8 @@ def load_data():
     
     all_data = []
     for city_name, coords in CITIES.items():
-        URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature&timezone=Asia%2FYangon"
+        # UPDATED: Added precipitation, wind_gusts_10m, and uv_index to the URL
+        URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index&timezone=Asia%2FYangon"
         try:
             response = requests.get(URL)
             data = response.json()
@@ -45,6 +46,9 @@ def load_data():
             temps = data['hourly']['temperature_2m']
             humidities = data['hourly']['relative_humidity_2m']
             heat_indices = data['hourly']['apparent_temperature']
+            precips = data['hourly']['precipitation']
+            gusts = data['hourly']['wind_gusts_10m']
+            uvs = data['hourly']['uv_index']
             
             for i in range(len(times)):
                 formatted_time = times[i].replace("T", " ") + ":00"
@@ -54,13 +58,16 @@ def load_data():
                     "Temperature": temps[i],
                     "Humidity": humidities[i],
                     "Heat Index": heat_indices[i],
+                    "Precipitation": precips[i],
+                    "Wind Gusts": gusts[i],
+                    "UV Index": uvs[i],
                     "Lat": coords['lat'],
                     "Lon": coords['lon']
                 })
         except Exception as e:
             st.error(f"Failed to load data for {city_name}")
             
-        time.sleep(1) # Prevents API blocking
+        time.sleep(1)
         
     df = pd.DataFrame(all_data)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
@@ -101,7 +108,6 @@ if sidebar_city != st.session_state.selected_city:
     st.rerun()
 
 active_city = st.session_state.selected_city
-
 city_df = display_df[display_df['City'] == active_city].copy()
 city_df['Daily Trend'] = city_df['Temperature'].rolling(window=24, min_periods=1, center=True).mean()
 
@@ -111,7 +117,7 @@ csv_data = display_df.to_csv(index=False).encode('utf-8')
 st.sidebar.download_button(
     label="📥 Download Full Dataset (CSV)",
     data=csv_data,
-    file_name=f"regional_heat_forecast_{current_mm_time.strftime('%Y%m%d')}.csv",
+    file_name=f"regional_weather_{current_mm_time.strftime('%Y%m%d')}.csv",
     mime="text/csv"
 )
 
@@ -120,30 +126,19 @@ st.sidebar.divider()
 st.sidebar.subheader("Regional Map")
 
 map_df = past_df[past_df['Timestamp'] == latest_actual_time]
-
 fig_map = px.scatter_mapbox(
     map_df, lat="Lat", lon="Lon", hover_name="City", custom_data=["City"],
     hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False, "City": False},
     color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
     size_max=12, 
-    zoom=4.0, 
+    zoom=3.5, 
     center={"lat": 19.0, "lon": 96.0}, 
-    height=600
+    height=600 
 )
-
-
-# Shrink margins and move the color bar to the bottom horizontally
 fig_map.update_layout(
     mapbox_style="open-street-map", 
     margin={"r":0,"t":0,"l":0,"b":0},
-    coloraxis_colorbar=dict(
-        orientation="h",
-        yanchor="top",
-        y=-0.1,      # Pushes the bar just below the map
-        xanchor="center",
-        x=0.5,
-        thickness=10 # Makes the bar thinner to save space
-    )
+    coloraxis_colorbar=dict(orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5, thickness=10)
 )
 
 map_event = st.sidebar.plotly_chart(fig_map, use_container_width=True, on_select="rerun")
@@ -159,11 +154,20 @@ st.subheader(f"Current Conditions in {active_city}")
 past_city_df = city_df[city_df['Timestamp'] <= current_mm_time]
 latest_city_data = past_city_df.iloc[-1]
 
+# Primary Metrics Row
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Temperature", f"{latest_city_data['Temperature']:.1f} {temp_unit}")
 col2.metric("Feels Like (Heat Index)", f"{latest_city_data['Heat Index']:.1f} {temp_unit}")
 col3.metric("Humidity", f"{latest_city_data['Humidity']:.0f} %")
 col4.metric("Last Updated", latest_city_data['Timestamp'].strftime("%Y-%m-%d %H:%M"))
+
+# Operational Threat Metrics Row
+st.markdown("###### Operational Threats (Current Hour)")
+col5, col6, col7, col8 = st.columns(4)
+col5.metric("Precipitation", f"{latest_city_data['Precipitation']:.1f} mm")
+col6.metric("Wind Gusts", f"{latest_city_data['Wind Gusts']:.1f} km/h")
+col7.metric("UV Index", f"{latest_city_data['UV Index']:.1f}")
+col8.empty() # Placeholder to keep the columns aligned evenly
 
 st.divider()
 
