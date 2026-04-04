@@ -11,7 +11,6 @@ if not BOT_TOKEN or not CHAT_ID:
     print("❌ ERROR: Missing Telegram credentials. Check GitHub Secrets.")
     exit()
 
-
 # --- 2. CRITICAL BCDR THRESHOLDS ---
 HEAT_INDEX_CRITICAL = 40.0   # Degrees Celsius
 WIND_GUST_CRITICAL = 60.0    # km/h
@@ -31,7 +30,8 @@ def send_telegram_alert(message):
     payload = {
         "chat_id": CHAT_ID,
         "text": message,
-        "parse_mode": "Markdown"
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": True # Keeps the alert clean by hiding the large URL preview box
     }
     try:
         response = requests.post(url, json=payload)
@@ -94,7 +94,12 @@ def check_threats():
 
     # --- C. DISPATCH THE ALERT ---
     if alerts:
+        # Build the main alert text
         final_message = "🚨 *BCDR TACTICAL ALERT* 🚨\n\n" + "\n\n".join(alerts)
+        
+        # Append the Streamlit Dashboard link at the very bottom
+        final_message += "\n\n🔗 [🇲🇲 Regional Climate & Seismic Dashboard · Streamlit](https://myanmar-heat-dashboard.streamlit.app/)"
+        
         send_telegram_alert(final_message)
     else:
         print("✅ No critical threats detected at this time. All clear.")
