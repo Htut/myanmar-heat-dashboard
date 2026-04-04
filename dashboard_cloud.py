@@ -84,32 +84,27 @@ past_df = display_df[display_df['Timestamp'] <= current_mm_time]
 latest_actual_time = past_df['Timestamp'].max()
 
 # --- 2. SESSION STATE & SIDEBAR ---
-# Initialize session state so the app remembers the clicked city
 if "selected_city" not in st.session_state:
     st.session_state.selected_city = "Mandalay"
 
 st.sidebar.header("Filter Options")
 city_list = display_df['City'].unique()
 
-# The sidebar dropdown now syncs with the session state
 sidebar_city = st.sidebar.selectbox(
     "Select a City to View Trends:", 
     city_list, 
     index=list(city_list).index(st.session_state.selected_city)
 )
 
-# Update state if user manually changes the dropdown
 if sidebar_city != st.session_state.selected_city:
     st.session_state.selected_city = sidebar_city
     st.rerun()
 
-# Use the globally selected city for the rest of the app
 active_city = st.session_state.selected_city
 
 city_df = display_df[display_df['City'] == active_city].copy()
 city_df['Daily Trend'] = city_df['Temperature'].rolling(window=24, min_periods=1, center=True).mean()
 
-# The Download Button
 st.sidebar.divider()
 st.sidebar.subheader("Data Export")
 csv_data = display_df.to_csv(index=False).encode('utf-8')
@@ -130,13 +125,12 @@ fig_map = px.scatter_mapbox(
     hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False, "City": False},
     color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
     size_max=12, 
-    zoom=4.0, # Zoomed out slightly to fit the narrow sidebar
+    zoom=4.0, 
     center={"lat": 19.0, "lon": 96.0}, 
-    height=450 # Shorter height
+    height=450 
 )
 fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0})
 
-# Draw the map IN THE SIDEBAR
 map_event = st.sidebar.plotly_chart(fig_map, use_container_width=True, on_select="rerun")
 
 if map_event and len(map_event.selection.get("points", [])) > 0:
@@ -185,42 +179,4 @@ fig_temp.add_annotation(
     text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12)
 )
 
-# Draw the chart full width
 st.plotly_chart(fig_temp, use_container_width=True)
-
-# ---> THIS SHOULD BE THE ABSOLUTE END OF YOUR FILE <---
-    
-# Check if a dot was clicked, and update the dashboard if so!
-if map_event and len(map_event.selection.get("points", [])) > 0:
-    clicked_city = map_event.selection["points"][0]["customdata"][0]
-    if clicked_city != st.session_state.selected_city:
-        st.session_state.selected_city = clicked_city
-        st.rerun()
-
-    #with col_right:
-    st.subheader(f"14-Day Trend & Forecast for {active_city}")
-    fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
-                    color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
-    fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
-    
-    # UPDATED: Moved the legend horizontally below the chart timestamp
-    fig_temp.update_layout(
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.3, # Pushes it safely below the x-axis dates
-            xanchor="center",
-            x=0.5,
-            title=None # Removes the "variable" title
-        ),
-        margin=dict(b=80) # Adds extra space at the bottom so the legend isn't cut off
-    )
-    
-    # Crash-proof forecast line
-    fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
-    fig_temp.add_annotation(
-        x=latest_actual_time, y=1, yref="paper", 
-        text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12)
-    )
-    
-    st.plotly_chart(fig_temp, use_container_width=True)
