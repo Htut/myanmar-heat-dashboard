@@ -4,7 +4,7 @@ import plotly.express as px
 import requests
 import time
 
-st.set_page_config(page_title="Regional Heat Monitor", layout="wide")
+st.set_page_config(page_title="Regional Heat Monitor", layout="wide", initial_sidebar_state="collapsed")
 
 col_title, col_toggle = st.columns([3, 1])
 with col_title:
@@ -16,7 +16,7 @@ with col_toggle:
     use_fahrenheit = st.toggle("Switch to Fahrenheit (°F)")
 
 # --- 1. CLOUD-READY DATA LOADER ---
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_data():
     CITIES = {
         "Mandalay": {"lat": 21.9588, "lon": 96.0891},
@@ -120,6 +120,31 @@ st.sidebar.download_button(
     mime="text/csv"
 )
 
+# --- THE SIDEBAR MAP ---
+st.sidebar.divider()
+st.sidebar.subheader("Regional Map")
+
+map_df = past_df[past_df['Timestamp'] == latest_actual_time]
+fig_map = px.scatter_mapbox(
+    map_df, lat="Lat", lon="Lon", hover_name="City", custom_data=["City"],
+    hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False, "City": False},
+    color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
+    size_max=12, 
+    zoom=4.0, # Zoomed out slightly to fit the narrow sidebar
+    center={"lat": 19.0, "lon": 96.0}, 
+    height=450 # Shorter height
+)
+fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0})
+
+# Draw the map IN THE SIDEBAR
+map_event = st.sidebar.plotly_chart(fig_map, use_container_width=True, on_select="rerun")
+
+if map_event and len(map_event.selection.get("points", [])) > 0:
+    clicked_city = map_event.selection["points"][0]["customdata"][0]
+    if clicked_city != st.session_state.selected_city:
+        st.session_state.selected_city = clicked_city
+        st.rerun()
+
 # --- 3. CURRENT METRICS ---
 st.subheader(f"Current Conditions in {active_city}")
 past_city_df = city_df[city_df['Timestamp'] <= current_mm_time]
@@ -141,27 +166,27 @@ if latest_city_data['Heat Index'] >= threshold:
 elif latest_city_data['Heat Index'] >= threshold - 5:
     st.warning(f"⚠️ **HEAT ADVISORY:** The Heat Index in {active_city} is elevating ({latest_city_data['Heat Index']:.1f} {temp_unit}).")
 
-st.divider()
+    st.divider()
 
-# --- 4 & 5. COMMAND CENTER LAYOUT ---
-col_left, col_right = st.columns([1, 1])
+    # --- 4. MAIN LAYOUT (Full-Width Chart) ---
+    st.subheader(f"14-Day Trend & Forecast for {active_city}")
+    fig_temp = px.line(city_df, x='Timestamp', y=['Temperature', 'Heat Index', 'Daily Trend'], 
+                    color_discrete_map={"Temperature": "#ff9999", "Heat Index": "#800080", "Daily Trend": "#cc0000"})
+    fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
 
-with col_left:
-    st.subheader("Regional Temperature Map")
-    map_df = past_df[past_df['Timestamp'] == latest_actual_time]
-
-    # UPDATED: Added custom_data=["City"] so Plotly can pass the city name when clicked
-    fig_map = px.scatter_mapbox(
-        map_df, lat="Lat", lon="Lon", hover_name="City", custom_data=["City"],
-        hover_data={"Temperature": True, "Heat Index": True, "Lat": False, "Lon": False, "City": False},
-        color="Temperature", color_continuous_scale=px.colors.sequential.YlOrRd, 
-        size_max=15, zoom=4.8, center={"lat": 19.0, "lon": 96.0}, height=650, 
-        title=f"Heat Map as of {latest_actual_time.strftime('%H:%M')}"
+    fig_temp.update_layout(
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5, title=None),
+        margin=dict(b=80) 
     )
-    fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
-    
-    # UPDATED: Map now listens for click events
-    map_event = st.plotly_chart(fig_map, use_container_width=True, on_select="rerun")
+
+    fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    fig_temp.add_annotation(
+        x=latest_actual_time, y=1, yref="paper", 
+        text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12)
+    )
+
+    # Draw the chart full width
+    st.plotly_chart(fig_temp, use_container_width=True)
     
     # Check if a dot was clicked, and update the dashboard if so!
     if map_event and len(map_event.selection.get("points", [])) > 0:
