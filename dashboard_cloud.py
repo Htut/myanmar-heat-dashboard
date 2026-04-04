@@ -157,6 +157,7 @@ with col_right:
     fig_temp.update_traces(line=dict(width=4), selector=dict(name="Daily Trend"))
     
     # NEW: Add a vertical line to show where "Now" is
-    fig_temp.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray", annotation_text="  Forecast Begins ➔", annotation_position="top right")
-    
+# Convert Timestamp to a string so Plotly can calculate the text position without crashing
+fig_temp.add_vline(x=str(latest_actual_time), line_dash="dash", line_color="gray", annotation_text="  Forecast Begins ➔", annotation_position="top right")
+
     st.plotly_chart(fig_temp, use_container_width=True)
