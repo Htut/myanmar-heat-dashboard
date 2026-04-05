@@ -52,7 +52,7 @@ with col_toggle:
     st.write("")
     use_fahrenheit = st.toggle("Switch to Fahrenheit (°F)")
 
-# --- 1. CLOUD-READY DATA LOADER (Upgraded with Pandas Merge) ---
+# --- 1. CLOUD-READY DATA LOADER (Upgraded with BCDR Metrics) ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_data():
     CITIES = {
@@ -73,21 +73,19 @@ def load_data():
     
     all_data = []
     for city_name, coords in CITIES.items():
-        # Weather API (Added Surface Pressure)
-        W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure&timezone=Asia%2FYangon"
-        # Air Quality API (Added PM2.5 and AQI)
-        AQ_URL = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=pm2_5,us_aqi&timezone=Asia%2FYangon"
+        # Weather API (Added Soil Moisture, Runoff, and Visibility)
+        W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure,soil_moisture_0_to_7cm,surface_runoff,visibility&timezone=Asia%2FYangon"
+        # Air Quality API (Added Carbon Monoxide and Dust)
+        AQ_URL = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=pm2_5,us_aqi,carbon_monoxide,dust&timezone=Asia%2FYangon"
         
         try:
             w_resp = requests.get(W_URL).json()
             aq_resp = requests.get(AQ_URL).json()
             
-            # Convert both API responses directly into Pandas DataFrames
             w_df = pd.DataFrame(w_resp.get('hourly', {}))
             aq_df = pd.DataFrame(aq_resp.get('hourly', {}))
             
             if not w_df.empty and not aq_df.empty:
-                # Merge the two databases securely matching the exact hour
                 city_merged = pd.merge(w_df, aq_df, on='time', how='left')
                 city_merged['City'] = city_name
                 city_merged['Lat'] = coords['lat']
@@ -97,11 +95,11 @@ def load_data():
         except Exception as e:
             st.error(f"Failed to load data for {city_name}")
             
-        time.sleep(1) # Prevent API blocks
+        time.sleep(1) 
         
     df = pd.concat(all_data, ignore_index=True)
     
-    # Rename columns to clean, readable titles
+    # Rename all columns to clean, readable titles
     df.rename(columns={
         'time': 'Timestamp',
         'temperature_2m': 'Temperature',
@@ -113,13 +111,26 @@ def load_data():
         'shortwave_radiation': 'Solar Radiation',
         'cloud_cover': 'Cloud Cover',
         'surface_pressure': 'Surface Pressure',
+        'soil_moisture_0_to_7cm': 'Soil Moisture',
+        'surface_runoff': 'Runoff',
+        'visibility': 'Visibility',
         'pm2_5': 'PM2.5',
-        'us_aqi': 'US AQI'
+        'us_aqi': 'US AQI',
+        'carbon_monoxide': 'Carbon Monoxide',
+        'dust': 'Dust'
     }, inplace=True)
     
     df['Timestamp'] = df['Timestamp'].str.replace('T', ' ') + ':00'
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     
+    # Convert Visibility from meters to kilometers for easier reading
+    df['Visibility'] = df['Visibility'] / 1000.0
+    
+    # Forward/Back fill to handle slight API timing mismatches
+    df.fillna(method='ffill', inplace=True)
+    df.fillna(method='bfill', inplace=True)
+
+    # ... (Keep your live USGS Seismic data block exactly as it is below this) ...
     # Air Quality forecast sometimes drops off a day early; this cleanly fills the gaps
     df['US AQI'] = df['US AQI'].ffill().bfill()
     df['PM2.5'] = df['PM2.5'].ffill().bfill()
@@ -301,9 +312,9 @@ if not period_df.empty:
 
 st.write("") # Adds a tiny bit of spacing before the tabs
 
-# Tabs definition (Keep your existing tabs)
-tab_heat, tab_storm, tab_health, tab_energy, tab_seismic = st.tabs([
-    "🌡️ Thermal Dynamics", "🌪️ Storm Warning", "😷 Health & Safety", "⚡ Energy & Solar", "🌍 Seismic Activity"
+# Tabs definition (Updated to 6 tabs)
+tab_heat, tab_storm, tab_health, tab_energy, tab_seismic, tab_logistics = st.tabs([
+    "🌡️ Thermal Dynamics", "🌪️ Storm Warning", "😷 Health & Safety", "⚡ Energy & Solar", "🌍 Seismic Activity", "🚛 Logistics & Env"
 ])
 
 with tab_heat:
@@ -360,6 +371,40 @@ with tab_energy:
     fig_solar.add_annotation(x=latest_actual_time, y=1, yref="paper", text=" Forecast Begins ➔", showarrow=False, xanchor="left", font=dict(color="gray", size=12))
     st.plotly_chart(fig_solar, use_container_width=True)
 
+
+# --- NEW TAB 6: Logistics & Environment ---
+with tab_logistics:
+    st.markdown("**1. Flood & Landslide Risk (Monsoon Season)**")
+    # Soil Moisture & Runoff
+    fig_soil = px.line(city_df, x='Timestamp', y='Soil Moisture', color_discrete_sequence=['#8B4513'])
+    fig_soil.update_layout(yaxis_title="Soil Moisture (m³/m³)", showlegend=False, height=200, margin=dict(b=0, t=30))
+    fig_soil.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    
+    fig_runoff = px.bar(city_df, x='Timestamp', y='Runoff', color_discrete_sequence=['#4682B4'])
+    fig_runoff.update_layout(yaxis_title="Surface Runoff (mm)", showlegend=False, height=200, margin=dict(t=10))
+    fig_runoff.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    
+    st.plotly_chart(fig_soil, use_container_width=True)
+    st.plotly_chart(fig_runoff, use_container_width=True)
+    
+    st.divider()
+    
+    st.markdown("**2. Supply Chain & Transport Safety**")
+    # Visibility
+    fig_vis = px.area(city_df, x='Timestamp', y='Visibility', color_discrete_sequence=['#A9A9A9'])
+    fig_vis.update_layout(yaxis_title="Visibility (km)", showlegend=False, height=250)
+    fig_vis.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    st.plotly_chart(fig_vis, use_container_width=True)
+    
+    st.divider()
+
+    st.markdown("**3. Industrial & Burning Season Threats**")
+    # Carbon Monoxide & Dust
+    fig_co = px.line(city_df, x='Timestamp', y=['Carbon Monoxide', 'Dust'], color_discrete_map={"Carbon Monoxide": "#DC143C", "Dust": "#D2B48C"})
+    fig_co.update_layout(yaxis_title="Concentration (μg/m³)", height=300, legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5))
+    fig_co.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    st.plotly_chart(fig_co, use_container_width=True)
+    
 # --- TAB 5: Seismic Activity ---
 with tab_seismic:
     st.markdown("**Live Regional Seismic Activity (USGS Data)**")
