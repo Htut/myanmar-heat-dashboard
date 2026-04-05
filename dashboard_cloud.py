@@ -252,19 +252,23 @@ col11.metric("Est. Solar Yield (8x 590W)", f"{latest_city_data['Est Solar Yield 
 st.divider()
 
 # --- THREAT ALERTS ---
-# Heat Alerts
-dangerous_temp_c = 40.0
-threshold = (dangerous_temp_c * 9/5) + 32 if use_fahrenheit else dangerous_temp_c
-if latest_city_data['Heat Index'] >= threshold:
-    st.error(f"⚠️ **EXTREME HEAT WARNING:** The Heat Index is currently {latest_city_data['Heat Index']:.1f} {temp_unit}. Please take precautions.")
-elif latest_city_data['Heat Index'] >= threshold - 5:
-    st.warning(f"⚠️ **HEAT ADVISORY:** The Heat Index is elevating ({latest_city_data['Heat Index']:.1f} {temp_unit}).")
+alert_col1, alert_col2 = st.columns(2)
 
-# Air Quality Alerts
-if latest_city_data['US AQI'] >= 151:
-    st.error(f"😷 **UNHEALTHY AIR WARNING:** The AQI is {latest_city_data['US AQI']:.0f}. Masking and reduced outdoor exertion strongly advised.")
-elif latest_city_data['US AQI'] >= 101:
-    st.warning(f"😷 **AIR QUALITY ADVISORY:** The AQI is elevating ({latest_city_data['US AQI']:.0f}). Sensitive groups should take precautions.")
+with alert_col1:
+    # Heat Alerts
+    dangerous_temp_c = 40.0
+    threshold = (dangerous_temp_c * 9/5) + 32 if use_fahrenheit else dangerous_temp_c
+    if latest_city_data['Heat Index'] >= threshold:
+        st.error(f"⚠️ **EXTREME HEAT WARNING:** The Heat Index is currently {latest_city_data['Heat Index']:.1f} {temp_unit}. Please take precautions.")
+    elif latest_city_data['Heat Index'] >= threshold - 5:
+        st.warning(f"⚠️ **HEAT ADVISORY:** The Heat Index is elevating ({latest_city_data['Heat Index']:.1f} {temp_unit}).")
+
+with alert_col2:
+    # Air Quality Alerts
+    if latest_city_data['US AQI'] >= 151:
+        st.error(f"😷 **UNHEALTHY AIR WARNING:** The AQI is {latest_city_data['US AQI']:.0f}. Masking and reduced outdoor exertion strongly advised.")
+    elif latest_city_data['US AQI'] >= 101:
+        st.warning(f"😷 **AIR QUALITY ADVISORY:** The AQI is elevating ({latest_city_data['US AQI']:.0f}). Sensitive groups should take precautions.")
 
 st.divider()
 
