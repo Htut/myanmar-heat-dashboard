@@ -233,7 +233,34 @@ st.divider()
 
 # --- 4. MAIN LAYOUT (Interactive Forecasting Tabs) ---
 st.subheader(f"14-Day Trend & Forecast for {active_city}")
-# UPDATED: Added the fifth tab for Seismic Activity
+
+# --- NEW: DYNAMIC PERIOD SUMMARY ---
+st.markdown("**📊 Period Summary Statistics**")
+sum_col1, sum_col2 = st.columns([1, 3])
+with sum_col1:
+    # Let the user choose the period!
+    summary_period = st.selectbox("Select Timeframe:", ["Today", "Next 3 Days", "Next 7 Days", "Past 7 Days"], label_visibility="collapsed")
+
+today_date = current_mm_time.date()
+if summary_period == "Today":
+    period_df = city_df[city_df['Timestamp'].dt.date == today_date]
+elif summary_period == "Next 3 Days":
+    period_df = city_df[(city_df['Timestamp'].dt.date >= today_date) & (city_df['Timestamp'].dt.date <= today_date + pd.Timedelta(days=2))]
+elif summary_period == "Next 7 Days":
+    period_df = city_df[city_df['Timestamp'].dt.date >= today_date]
+else: # Past 7 Days
+    period_df = city_df[city_df['Timestamp'].dt.date < today_date]
+
+if not period_df.empty:
+    sc1, sc2, sc3, sc4 = st.columns(4)
+    sc1.metric("🌡️ Temp (Max | Min | Avg)", f"{period_df['Temperature'].max():.1f} | {period_df['Temperature'].min():.1f} | {period_df['Temperature'].mean():.1f} {temp_unit}")
+    sc2.metric("🥵 Heat Index (Max | Min | Avg)", f"{period_df['Heat Index'].max():.1f} | {period_df['Heat Index'].min():.1f} | {period_df['Heat Index'].mean():.1f} {temp_unit}")
+    sc3.metric("🌪️ Wind Gust (Max | Avg)", f"{period_df['Wind Gusts'].max():.1f} | {period_df['Wind Gusts'].mean():.1f} km/h")
+    sc4.metric("☔ Precip (Total Accumulation)", f"{period_df['Precipitation'].sum():.1f} mm")
+
+st.write("") # Adds a tiny bit of spacing before the tabs
+
+# Tabs definition (Keep your existing tabs)
 tab_heat, tab_storm, tab_health, tab_energy, tab_seismic = st.tabs([
     "🌡️ Thermal Dynamics", "🌪️ Storm Warning", "😷 Health & Safety", "⚡ Energy & Solar", "🌍 Seismic Activity"
 ])
@@ -328,6 +355,9 @@ with tab_seismic:
         ]
         
         if not filtered_eq_df.empty:
+            # --- NEW: Seismic Period Stats ---
+            st.markdown(f"**Period Stats:** Max: **M{filtered_eq_df['Magnitude'].max():.1f}** | Min: **M{filtered_eq_df['Magnitude'].min():.1f}** | Avg: **M{filtered_eq_df['Magnitude'].mean():.1f}** | Total Events: **{len(filtered_eq_df)}**")
+            
             # Plot filtered earthquakes
             fig_eq = px.scatter_mapbox(
                 filtered_eq_df, lat="Lat", lon="Lon", hover_name="Place",
