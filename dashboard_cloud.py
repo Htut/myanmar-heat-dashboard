@@ -274,16 +274,26 @@ with tab_heat:
     st.plotly_chart(fig_temp, use_container_width=True)
 
 with tab_storm:
-    st.markdown("**Storm Indicators: Wind Gusts & Barometric Pressure Drops**")
+    st.markdown("**Storm Indicators: Wind Gusts, Precipitation & Barometric Pressure**")
+    
+    # 1. Wind Gusts
     fig_wind = px.area(city_df, x='Timestamp', y='Wind Gusts', color_discrete_sequence=['#008080'])
-    fig_wind.update_layout(yaxis_title="Wind Gusts (km/h)", showlegend=False, height=300)
+    fig_wind.update_layout(yaxis_title="Wind Gusts (km/h)", showlegend=False, height=250)
     fig_wind.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
     
+    # 2. RESTORED: Precipitation
+    fig_precip = px.bar(city_df, x='Timestamp', y='Precipitation', color_discrete_sequence=['#1f77b4'])
+    fig_precip.update_layout(yaxis_title="Precipitation (mm)", showlegend=False, height=250)
+    fig_precip.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
+    
+    # 3. Surface Pressure
     fig_pres = px.line(city_df, x='Timestamp', y='Surface Pressure', color_discrete_sequence=['#8A2BE2'])
-    fig_pres.update_layout(yaxis_title="Surface Pressure (hPa)", showlegend=False, height=300)
+    fig_pres.update_layout(yaxis_title="Surface Pressure (hPa)", showlegend=False, height=250)
     fig_pres.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
     
+    # Render all three charts
     st.plotly_chart(fig_wind, use_container_width=True)
+    st.plotly_chart(fig_precip, use_container_width=True)
     st.plotly_chart(fig_pres, use_container_width=True)
 
 with tab_health:
