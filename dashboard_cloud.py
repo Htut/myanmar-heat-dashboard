@@ -6,6 +6,43 @@ import time
 
 st.set_page_config(page_title="🇲🇲 Regional Climate & Seismic Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
+# --- CUSTOM CSS FOR MOBILE-FRIENDLY FONTS ---
+st.markdown("""
+<style>
+    /* Reduce the size of the main title */
+    h1 {
+        font-size: 2.2rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+    /* Reduce the size of subheaders */
+    h2 {
+        font-size: 1.5rem !important;
+    }
+    h3 {
+        font-size: 1.2rem !important;
+    }
+    /* Shrink the large metric numbers */
+    [data-testid="stMetricValue"] {
+        font-size: 1.6rem !important;
+    }
+    /* Make metric labels slightly smaller and allow them to wrap instead of cutting off */
+    [data-testid="stMetricLabel"] {
+        font-size: 0.85rem !important;
+        white-space: normal !important; 
+    }
+    
+    /* Media query to make things EVEN SMALLER on actual mobile screens (< 600px wide) */
+    @media (max-width: 600px) {
+        h1 {
+            font-size: 1.8rem !important;
+        }
+        [data-testid="stMetricValue"] {
+            font-size: 1.4rem !important;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
 col_title, col_toggle = st.columns([3, 1])
 with col_title:
     st.title("🇲🇲 Climate & Seismic Dashboard")
