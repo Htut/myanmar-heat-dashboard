@@ -74,7 +74,8 @@ def load_data():
     all_data = []
     for city_name, coords in CITIES.items():
         # Weather API (Added Soil Moisture, Runoff, and Visibility)
-        W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure,soil_moisture_0_to_7cm,surface_runoff,visibility&timezone=Asia%2FYangon"
+        # Weather API (Added Soil Moisture, Runoff, and Visibility)
+        W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure,soil_moisture_0_to_7cm,runoff,visibility&timezone=Asia%2FYangon"
         # Air Quality API (Added Carbon Monoxide and Dust)
         AQ_URL = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=pm2_5,us_aqi,carbon_monoxide,dust&timezone=Asia%2FYangon"
         
@@ -112,7 +113,7 @@ def load_data():
         'cloud_cover': 'Cloud Cover',
         'surface_pressure': 'Surface Pressure',
         'soil_moisture_0_to_7cm': 'Soil Moisture',
-        'surface_runoff': 'Runoff',
+        'runoff': 'Runoff',               # <--- Changed from 'surface_runoff'
         'visibility': 'Visibility',
         'pm2_5': 'PM2.5',
         'us_aqi': 'US AQI',
@@ -404,7 +405,7 @@ with tab_logistics:
     fig_co.update_layout(yaxis_title="Concentration (μg/m³)", height=300, legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5))
     fig_co.add_vline(x=latest_actual_time, line_dash="dash", line_color="gray")
     st.plotly_chart(fig_co, use_container_width=True)
-    
+
 # --- TAB 5: Seismic Activity ---
 with tab_seismic:
     st.markdown("**Live Regional Seismic Activity (USGS Data)**")
