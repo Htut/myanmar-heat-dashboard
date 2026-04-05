@@ -8,7 +8,7 @@ st.set_page_config(page_title="🇲🇲 Regional Climate & Seismic Dashboard", l
 
 col_title, col_toggle = st.columns([3, 1])
 with col_title:
-    st.title("🇲🇲 Regional Heat & Humidity Dashboard")
+    st.title("🇲🇲 Climate & Seismic Dashboard")
     st.markdown("Live tracking and 7-day forecasting across Myanmar and Southeast Asia.")
 with col_toggle:
     st.write("")
