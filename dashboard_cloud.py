@@ -212,6 +212,10 @@ CITIES = {
     "Male": {"lat": 4.1755, "lon": 73.5093, "country": "Maldives"}
 }
 
+# --- 0. SESSION STATE INITIALIZATION ---
+if "selected_city" not in st.session_state:
+    st.session_state.selected_city = "Mandalay"
+
 # --- UI: DYNAMIC COUNTRY & CITY FILTERS ---
 st.markdown("### 🔍 Select Location")
 filter_col1, filter_col2 = st.columns(2)
@@ -230,9 +234,20 @@ else:
     available_cities = sorted([city for city, info in CITIES.items() if info["country"] == selected_country])
 
 with filter_col2:
-    # Ensure this variable replaces any old active_city variable you had
-    active_city = st.selectbox("📍 Select City:", available_cities)
+    # Safely get the default index if the city exists in the filtered list
+    if st.session_state.selected_city in available_cities:
+        default_index = available_cities.index(st.session_state.selected_city)
+    else:
+        default_index = 0
+        
+    new_city = st.selectbox("📍 Select City:", available_cities, index=default_index)
+    
+    # Update memory and refresh the dashboard if the dropdown changed
+    if new_city != st.session_state.selected_city:
+        st.session_state.selected_city = new_city
+        st.rerun()
 
+active_city = st.session_state.selected_city
 st.divider()
     
 # --- NEW: CACHED WORLD MAP LOADER ---
@@ -372,20 +387,7 @@ current_mm_time = current_mm_time.tz_localize(None)
 past_df = display_df[display_df['Timestamp'] <= current_mm_time]
 latest_actual_time = past_df['Timestamp'].max()
 
-# --- 2. SESSION STATE & SIDEBAR ---
-if "selected_city" not in st.session_state:
-    st.session_state.selected_city = "Mandalay"
-
-st.sidebar.header("Filter Options")
-city_list = display_df['City'].unique()
-
-sidebar_city = st.sidebar.selectbox("Select a City to View Trends:", city_list, index=list(city_list).index(st.session_state.selected_city))
-
-if sidebar_city != st.session_state.selected_city:
-    st.session_state.selected_city = sidebar_city
-    st.rerun()
-
-active_city = st.session_state.selected_city
+# --- 2. SIDEBAR EXPORT & MAP ---
 city_df = display_df[display_df['City'] == active_city].copy()
 city_df['Daily Trend'] = city_df['Temperature'].rolling(window=24, min_periods=1, center=True).mean()
 city_df['Est Solar Yield (kW)'] = (city_df['Solar Radiation'] / 1000) * 4.72 * 0.75
