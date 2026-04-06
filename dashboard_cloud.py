@@ -87,32 +87,58 @@ def load_data():
     }
     
     all_data = []
-    for city_name, coords in CITIES.items():
-        # Weather API (Fixed Runoff and Soil Moisture parameter names)
-        W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure,soil_moisture_0_to_1cm,runoff,visibility&timezone=Asia%2FYangon"
-        # Air Quality API 
-        AQ_URL = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=pm2_5,us_aqi,carbon_monoxide,dust&timezone=Asia%2FYangon"
+    city_names = list(CITIES.keys())
+    
+    # We fetch data in batches of 30 to bypass slow loops and respect URL length limits
+    BATCH_SIZE = 30 
+    
+    for i in range(0, len(city_names), BATCH_SIZE):
+        batch_names = city_names[i : i + BATCH_SIZE]
+        
+        # Create comma-separated strings of latitudes and longitudes
+        lats = ",".join([str(CITIES[name]["lat"]) for name in batch_names])
+        lons = ",".join([str(CITIES[name]["lon"]) for name in batch_names])
+        
+        # A single API call asks for all 30 cities at once
+        W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={lats}&longitude={lons}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure,soil_moisture_0_to_1cm,runoff,visibility&timezone=Asia%2FYangon"
+        AQ_URL = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lats}&longitude={lons}&past_days=7&forecast_days=7&hourly=pm2_5,us_aqi,carbon_monoxide,dust&timezone=Asia%2FYangon"
         
         try:
             w_resp = requests.get(W_URL).json()
             aq_resp = requests.get(AQ_URL).json()
             
-            w_df = pd.DataFrame(w_resp.get('hourly', {}))
-            aq_df = pd.DataFrame(aq_resp.get('hourly', {}))
-            
-            if not w_df.empty and not aq_df.empty:
-                city_merged = pd.merge(w_df, aq_df, on='time', how='left')
-                city_merged['City'] = city_name
-                city_merged['Lat'] = coords['lat']
-                city_merged['Lon'] = coords['lon']
-                all_data.append(city_merged)
+            # Catch Open-Meteo rate limit or parameter errors
+            if isinstance(w_resp, dict) and 'error' in w_resp:
+                st.warning(f"Batch API Error: {w_resp.get('reason')}")
+                continue
                 
-        except Exception as e:
-            st.error(f"Failed to load data for {city_name}")
+            # If only 1 city is in the batch, Open-Meteo returns a dictionary. 
+            # If multiple cities, it returns a list of dictionaries. We unify them:
+            if isinstance(w_resp, dict): w_resp = [w_resp]
+            if isinstance(aq_resp, dict): aq_resp = [aq_resp]
             
-        time.sleep(1) 
+            # Process the returned batch list
+            for j, city in enumerate(batch_names):
+                city_w_data = w_resp[j]
+                city_aq_data = aq_resp[j]
+                
+                w_df = pd.DataFrame(city_w_data.get('hourly', {}))
+                aq_df = pd.DataFrame(city_aq_data.get('hourly', {}))
+                
+                if not w_df.empty and not aq_df.empty:
+                    city_merged = pd.merge(w_df, aq_df, on='time', how='left')
+                    city_merged['City'] = city
+                    city_merged['Lat'] = CITIES[city]['lat']
+                    city_merged['Lon'] = CITIES[city]['lon']
+                    all_data.append(city_merged)
+                    
+        except Exception as e:
+            st.error(f"Failed to load batch starting with {batch_names[0]}")
+            
+        # A tiny pause between large batches to respect free-tier servers
+        time.sleep(0.5) 
         
-    # Crash-proof safety net if API rejects the request entirely
+    # Crash-proof safety net
     if not all_data:
         st.error("Critical API Error: Weather data requests failed. Please check API parameters.")
         return pd.DataFrame() 
@@ -131,8 +157,8 @@ def load_data():
         'shortwave_radiation': 'Solar Radiation',
         'cloud_cover': 'Cloud Cover',
         'surface_pressure': 'Surface Pressure',
-        'soil_moisture_0_to_1cm': 'Soil Moisture', # <-- FIXED
-        'runoff': 'Runoff',                      # <-- FIXED
+        'soil_moisture_0_to_1cm': 'Soil Moisture',
+        'runoff': 'Runoff',
         'visibility': 'Visibility',
         'pm2_5': 'PM2.5',
         'us_aqi': 'US AQI',
@@ -142,17 +168,10 @@ def load_data():
     
     df['Timestamp'] = df['Timestamp'].str.replace('T', ' ') + ':00'
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-    
-    # Convert Visibility from meters to kilometers for easier reading
     df['Visibility'] = df['Visibility'] / 1000.0
     
-    # Forward/Back fill to handle slight API timing mismatches
     df.ffill(inplace=True)
     df.bfill(inplace=True)
-
-    # Air Quality forecast sometimes drops off a day early; this cleanly fills the gaps
-    df['US AQI'] = df['US AQI'].ffill().bfill()
-    df['PM2.5'] = df['PM2.5'].ffill().bfill()
 
     # --- ADDED: LIVE USGS SEISMIC DATA ---
     eq_url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2024-03-01&minmagnitude=3.5&minlatitude=9.0&maxlatitude=29.0&minlongitude=92.0&maxlongitude=102.0"
