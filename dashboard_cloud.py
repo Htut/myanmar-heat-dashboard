@@ -153,6 +153,12 @@ with filter_col2:
 
 st.divider()
     
+# --- NEW: CACHED WORLD MAP LOADER ---
+@st.cache_data(ttl=86400, show_spinner=False)
+def load_world_map():
+    """Downloads country boundaries once per day to bypass the GeoPandas 1.0 deprecation."""
+    url = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
+    return gpd.read_file(url)
 
 # --- 1. CLOUD-READY DATA LOADER (Upgraded with BCDR Metrics) ---
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -620,7 +626,8 @@ with tab_contour:
             
             # --- NEW: ADD COUNTRY BORDERS ---
             # Load the lightweight world map from geopandas and plot the boundaries over the heat map
-            world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+            # Load the lightweight world map (using our cached function to bypass GeoPandas 1.0 errors)
+            world = load_world_map()
             world.boundary.plot(ax=ax, color='#333333', linewidth=0.8, zorder=3)
             
             # Lock the map view to our dynamic grid so we don't see the whole globe
