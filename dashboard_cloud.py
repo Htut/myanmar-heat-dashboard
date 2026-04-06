@@ -695,55 +695,55 @@ with tab_contour:
         grid_lat = np.linspace(min_lat, max_lat, 400)
         grid_lon, grid_lat = np.meshgrid(grid_lon, grid_lat)
         
-try:
-            # 4. Interpolate the gaps using SciPy
-            # First pass: Cubic for smooth internal gradients
-            grid_temp_cubic = griddata(points, values, (grid_lon, grid_lat), method='cubic')
-            
-            # Second pass: Nearest to fill the blank edges (like oceans) where cubic fails
-            grid_temp_nearest = griddata(points, values, (grid_lon, grid_lat), method='nearest')
-            
-            # Combine them: If cubic is blank (NaN), use nearest
-            grid_temp = np.where(np.isnan(grid_temp_cubic), grid_temp_nearest, grid_temp_cubic)
-            
-            # --- NEW: METEOROLOGICAL SMOOTHING ---
-            # Apply a Gaussian blur to the grid to create a perfectly liquid, homogeneous heat map
-            # A sigma of 2.0 or 3.0 provides the perfect blend!
-            grid_temp_smoothed = ndimage.gaussian_filter(grid_temp, sigma=2.5)
-            
-            # 5. Render the Meteorological Contour Map
-            fig, ax = plt.subplots(figsize=(14, 10))
-            ax.set_facecolor('#e8e9eb') 
-            
-            # Draw the continuous heat bands using our SMOOTHED grid
-            contour = ax.contourf(grid_lon, grid_lat, grid_temp_smoothed, levels=40, cmap='turbo', alpha=0.85, zorder=2)
-            # --- NEW: ADD COUNTRY BORDERS ---
-            # Load the lightweight world map from geopandas and plot the boundaries over the heat map
-            # Load the lightweight world map (using our cached function to bypass GeoPandas 1.0 errors)
-            world = load_world_map()
-            world.boundary.plot(ax=ax, color='#333333', linewidth=0.8, zorder=3)
-            
-            # Lock the map view to our dynamic grid so we don't see the whole globe
-            ax.set_xlim(min_lon, max_lon)
-            ax.set_ylim(min_lat, max_lat)
-            
-            # Plot the actual city data points on top (zorder=4)
-            ax.scatter(map_df['Lon'], map_df['Lat'], color='white', edgecolor='black', s=45, zorder=4)
-            
-            # Label the major cities
-            for idx, row in map_df.iterrows():
-                if row['City'] in ["Yangon", "Mandalay", "Bangkok", "Dhaka", "Kuala Lumpur", "New Delhi", "Hanoi", "Beijing", "Tokyo", "Jakarta"]:
-                    ax.text(row['Lon'] + 0.5, row['Lat'], row['City'], fontsize=10, color='black', weight='bold', zorder=5)
-                    
-            # Formatting the chart
-            plt.colorbar(contour, ax=ax, label=f"Temperature ({temp_unit})", shrink=0.8)
-            ax.set_title(f"Continuous Thermal Surface Map ({latest_actual_time.strftime('%Y-%m-%d %H:%M')} MMT)", fontsize=16, pad=15)
-            ax.set_xlabel("Longitude", fontsize=12)
-            ax.set_ylabel("Latitude", fontsize=12)
-            ax.grid(True, linestyle='--', alpha=0.3)
-            
-            # Send the Matplotlib figure to Streamlit
-            st.pyplot(fig)
-            
-        except Exception as e:
-            st.error(f"Not enough data points currently loaded to compute interpolation grid. Error: {e}")
+    try:
+        # 4. Interpolate the gaps using SciPy
+        # First pass: Cubic for smooth internal gradients
+        grid_temp_cubic = griddata(points, values, (grid_lon, grid_lat), method='cubic')
+        
+        # Second pass: Nearest to fill the blank edges (like oceans) where cubic fails
+        grid_temp_nearest = griddata(points, values, (grid_lon, grid_lat), method='nearest')
+        
+        # Combine them: If cubic is blank (NaN), use nearest
+        grid_temp = np.where(np.isnan(grid_temp_cubic), grid_temp_nearest, grid_temp_cubic)
+        
+        # --- NEW: METEOROLOGICAL SMOOTHING ---
+        # Apply a Gaussian blur to the grid to create a perfectly liquid, homogeneous heat map
+        # A sigma of 2.0 or 3.0 provides the perfect blend!
+        grid_temp_smoothed = ndimage.gaussian_filter(grid_temp, sigma=2.5)
+        
+        # 5. Render the Meteorological Contour Map
+        fig, ax = plt.subplots(figsize=(14, 10))
+        ax.set_facecolor('#e8e9eb') 
+        
+        # Draw the continuous heat bands using our SMOOTHED grid
+        contour = ax.contourf(grid_lon, grid_lat, grid_temp_smoothed, levels=40, cmap='turbo', alpha=0.85, zorder=2)
+        # --- NEW: ADD COUNTRY BORDERS ---
+        # Load the lightweight world map from geopandas and plot the boundaries over the heat map
+        # Load the lightweight world map (using our cached function to bypass GeoPandas 1.0 errors)
+        world = load_world_map()
+        world.boundary.plot(ax=ax, color='#333333', linewidth=0.8, zorder=3)
+        
+        # Lock the map view to our dynamic grid so we don't see the whole globe
+        ax.set_xlim(min_lon, max_lon)
+        ax.set_ylim(min_lat, max_lat)
+        
+        # Plot the actual city data points on top (zorder=4)
+        ax.scatter(map_df['Lon'], map_df['Lat'], color='white', edgecolor='black', s=45, zorder=4)
+        
+        # Label the major cities
+        for idx, row in map_df.iterrows():
+            if row['City'] in ["Yangon", "Mandalay", "Bangkok", "Dhaka", "Kuala Lumpur", "New Delhi", "Hanoi", "Beijing", "Tokyo", "Jakarta"]:
+                ax.text(row['Lon'] + 0.5, row['Lat'], row['City'], fontsize=10, color='black', weight='bold', zorder=5)
+                
+        # Formatting the chart
+        plt.colorbar(contour, ax=ax, label=f"Temperature ({temp_unit})", shrink=0.8)
+        ax.set_title(f"Continuous Thermal Surface Map ({latest_actual_time.strftime('%Y-%m-%d %H:%M')} MMT)", fontsize=16, pad=15)
+        ax.set_xlabel("Longitude", fontsize=12)
+        ax.set_ylabel("Latitude", fontsize=12)
+        ax.grid(True, linestyle='--', alpha=0.3)
+        
+        # Send the Matplotlib figure to Streamlit
+        st.pyplot(fig)
+        
+    except Exception as e:
+        st.error(f"Not enough data points currently loaded to compute interpolation grid. Error: {e}")
