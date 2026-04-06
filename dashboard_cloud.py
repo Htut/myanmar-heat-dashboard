@@ -56,19 +56,34 @@ with col_toggle:
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_data():
     CITIES = {
+        # --- MYANMAR (Core Hubs & States) ---
         "Mandalay": {"lat": 21.9588, "lon": 96.0891},
         "Yangon": {"lat": 16.8409, "lon": 96.1735},
         "Naypyidaw": {"lat": 19.7450, "lon": 96.1297},
         "Taunggyi": {"lat": 20.7814, "lon": 97.0333},
         "Chauk": {"lat": 20.8906, "lon": 94.8236},
         "Minbu": {"lat": 20.1775, "lon": 94.8781},
-        "Bangkok": {"lat": 13.7563, "lon": 100.5018},
         "Sittwe": {"lat": 20.1444, "lon": 92.8986},
         "Monywa": {"lat": 22.1167, "lon": 95.1333},
         "Pakokku": {"lat": 21.3333, "lon": 95.0833},
         "Pyay": {"lat": 18.8239, "lon": 95.2247},
         "Magway": {"lat": 20.1458, "lon": 94.9153},
-        "Sagaing": {"lat": 21.8787, "lon": 95.9797}
+        "Sagaing": {"lat": 21.8787, "lon": 95.9797},
+        "Bago": {"lat": 17.3333, "lon": 96.4833},
+        "Mawlamyine": {"lat": 16.4833, "lon": 97.6333},
+        "Pathein": {"lat": 16.7833, "lon": 94.7333},
+        "Myitkyina": {"lat": 25.3833, "lon": 97.4000},
+        "Lashio": {"lat": 22.9333, "lon": 97.7500},
+        "Dawei": {"lat": 14.0833, "lon": 98.2000},
+        
+        # --- NEIGHBORING REGIONS (Cross-Border Threats) ---
+        "Bangkok (TH)": {"lat": 13.7563, "lon": 100.5018},
+        "Chiang Mai (TH)": {"lat": 18.7953, "lon": 98.9620},
+        "Dhaka (BD)": {"lat": 23.8103, "lon": 90.4125},
+        "Kolkata (IN)": {"lat": 22.5726, "lon": 88.3639},
+        "Imphal (IN)": {"lat": 24.8170, "lon": 93.9368},
+        "Kunming (CN)": {"lat": 25.0453, "lon": 102.7100},
+        "Vientiane (LA)": {"lat": 17.9757, "lon": 102.6331}
     }
     
     all_data = []
