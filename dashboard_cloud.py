@@ -744,7 +744,7 @@ with tab_contour:
         
         # Label ONLY the filtered cities
         for idx, row in visible_points.iterrows():
-            ax.text(row['Lon'] + 0.5, row['Lat'], row['City'], fontsize=10, color='black', weight='bold', zorder=5)
+            ax.text(row['Lon'] + 0.5, row['Lat'], row['City'], fontsize=8, color='black', weight='bold', zorder=5)
         # Formatting the chart
         plt.colorbar(contour, ax=ax, label=f"Temperature ({temp_unit})", shrink=0.8)
         ax.set_title(f"Continuous Thermal Surface Map ({latest_actual_time.strftime('%Y-%m-%d %H:%M')} MMT)", fontsize=16, pad=15)
