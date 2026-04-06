@@ -52,50 +52,102 @@ with col_toggle:
     st.write("")
     use_fahrenheit = st.toggle("Switch to Fahrenheit (°F)")
 
+# --- MASTER DATABASE: REGIONAL CITIES ---
+CITIES = {
+    # --- MYANMAR (>100k Population) ---
+    "Yangon": {"lat": 16.8409, "lon": 96.1735, "country": "Myanmar"},
+    "Mandalay": {"lat": 21.9588, "lon": 96.0891, "country": "Myanmar"},
+    "Naypyidaw": {"lat": 19.7450, "lon": 96.1297, "country": "Myanmar"},
+    "Taunggyi": {"lat": 20.7814, "lon": 97.0333, "country": "Myanmar"},
+    "Bago": {"lat": 17.3333, "lon": 96.4833, "country": "Myanmar"},
+    "Mawlamyine": {"lat": 16.4833, "lon": 97.6333, "country": "Myanmar"},
+    "Myitkyina": {"lat": 25.3833, "lon": 97.4000, "country": "Myanmar"},
+    "Monywa": {"lat": 22.1167, "lon": 95.1333, "country": "Myanmar"},
+    "Pathein": {"lat": 16.7833, "lon": 94.7333, "country": "Myanmar"},
+    "Sittwe": {"lat": 20.1444, "lon": 92.8986, "country": "Myanmar"},
+    "Pyay": {"lat": 18.8239, "lon": 95.2247, "country": "Myanmar"},
+    "Pakokku": {"lat": 21.3333, "lon": 95.0833, "country": "Myanmar"},
+    "Myeik": {"lat": 12.4333, "lon": 98.6000, "country": "Myanmar"},
+    "Lashio": {"lat": 22.9333, "lon": 97.7500, "country": "Myanmar"},
+    "Meiktila": {"lat": 20.8833, "lon": 95.8667, "country": "Myanmar"},
+    "Taungoo": {"lat": 18.9333, "lon": 96.4333, "country": "Myanmar"},
+    "Magway": {"lat": 20.1458, "lon": 94.9153, "country": "Myanmar"},
+    "Chauk": {"lat": 20.8906, "lon": 94.8236, "country": "Myanmar"},
+    "Minbu": {"lat": 20.1775, "lon": 94.8781, "country": "Myanmar"},
+    "Sagaing": {"lat": 21.8787, "lon": 95.9797, "country": "Myanmar"},
+
+    # --- CAPITALS & METROS (TH, LA, MY > 5M) ---
+    "Bangkok": {"lat": 13.7563, "lon": 100.5018, "country": "Thailand"},
+    "Vientiane": {"lat": 17.9757, "lon": 102.6331, "country": "Laos"},
+    "Kuala Lumpur": {"lat": 3.1390, "lon": 101.6869, "country": "Malaysia"},
+
+    # --- CAPITALS & MEGA CITIES > 10M (CN, IN, BD, PK, ID) ---
+    "Beijing": {"lat": 39.9042, "lon": 116.4074, "country": "China"},
+    "Shanghai": {"lat": 31.2304, "lon": 121.4737, "country": "China"},
+    "Guangzhou": {"lat": 23.1291, "lon": 113.2644, "country": "China"},
+    "Shenzhen": {"lat": 22.5431, "lon": 114.0579, "country": "China"},
+    "Chengdu": {"lat": 30.6500, "lon": 104.0667, "country": "China"},
+    "Chongqing": {"lat": 29.5332, "lon": 106.5050, "country": "China"},
+    "Tianjin": {"lat": 39.0842, "lon": 117.2009, "country": "China"},
+
+    "New Delhi": {"lat": 28.6139, "lon": 77.2090, "country": "India"},
+    "Mumbai": {"lat": 19.0760, "lon": 72.8777, "country": "India"},
+    "Bengaluru": {"lat": 12.9716, "lon": 77.5946, "country": "India"},
+    "Kolkata": {"lat": 22.5726, "lon": 88.3639, "country": "India"},
+    "Chennai": {"lat": 13.0827, "lon": 80.2707, "country": "India"},
+    "Hyderabad": {"lat": 17.3850, "lon": 78.4867, "country": "India"},
+
+    "Dhaka": {"lat": 23.8103, "lon": 90.4125, "country": "Bangladesh"},
+
+    "Islamabad": {"lat": 33.6844, "lon": 73.0479, "country": "Pakistan"},
+    "Karachi": {"lat": 24.8607, "lon": 67.0011, "country": "Pakistan"},
+    "Lahore": {"lat": 31.5204, "lon": 74.3587, "country": "Pakistan"},
+
+    "Jakarta": {"lat": -6.2088, "lon": 106.8456, "country": "Indonesia"},
+
+    # --- OTHER CAPITALS ---
+    "Hanoi": {"lat": 21.0285, "lon": 105.8542, "country": "Vietnam"},
+    "Singapore": {"lat": 1.3521, "lon": 103.8198, "country": "Singapore"},
+    "Bandar Seri Begawan": {"lat": 4.9031, "lon": 114.9398, "country": "Brunei"}
+}
+
+# --- UI: DYNAMIC COUNTRY & CITY FILTERS ---
+st.markdown("### 🔍 Select Location")
+filter_col1, filter_col2 = st.columns(2)
+
+# 1. Extract and sort unique countries, adding "All Countries" at the top
+all_countries = sorted(list(set(info["country"] for info in CITIES.values())))
+all_countries.insert(0, "All Countries")
+
+with filter_col1:
+    selected_country = st.selectbox("🌍 Filter by Country:", all_countries)
+
+# 2. Filter the city list based on the selected country
+if selected_country == "All Countries":
+    available_cities = sorted(list(CITIES.keys()))
+else:
+    available_cities = sorted([city for city, info in CITIES.items() if info["country"] == selected_country])
+
+with filter_col2:
+    # Ensure this variable replaces any old active_city variable you had
+    active_city = st.selectbox("📍 Select City:", available_cities)
+
+st.divider()
+    
+
 # --- 1. CLOUD-READY DATA LOADER (Upgraded with BCDR Metrics) ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_data():
-    CITIES = {
-        # --- MYANMAR (Core Hubs & States) ---
-        "Mandalay": {"lat": 21.9588, "lon": 96.0891},
-        "Yangon": {"lat": 16.8409, "lon": 96.1735},
-        "Naypyidaw": {"lat": 19.7450, "lon": 96.1297},
-        "Taunggyi": {"lat": 20.7814, "lon": 97.0333},
-        "Chauk": {"lat": 20.8906, "lon": 94.8236},
-        "Minbu": {"lat": 20.1775, "lon": 94.8781},
-        "Sittwe": {"lat": 20.1444, "lon": 92.8986},
-        "Monywa": {"lat": 22.1167, "lon": 95.1333},
-        "Pakokku": {"lat": 21.3333, "lon": 95.0833},
-        "Pyay": {"lat": 18.8239, "lon": 95.2247},
-        "Magway": {"lat": 20.1458, "lon": 94.9153},
-        "Sagaing": {"lat": 21.8787, "lon": 95.9797},
-        "Bago": {"lat": 17.3333, "lon": 96.4833},
-        "Mawlamyine": {"lat": 16.4833, "lon": 97.6333},
-        "Pathein": {"lat": 16.7833, "lon": 94.7333},
-        "Myitkyina": {"lat": 25.3833, "lon": 97.4000},
-        "Lashio": {"lat": 22.9333, "lon": 97.7500},
-        "Dawei": {"lat": 14.0833, "lon": 98.2000},
-        
-        # --- NEIGHBORING REGIONS (Cross-Border Threats) ---
-        "Bangkok (TH)": {"lat": 13.7563, "lon": 100.5018},
-        "Chiang Mai (TH)": {"lat": 18.7953, "lon": 98.9620},
-        "Dhaka (BD)": {"lat": 23.8103, "lon": 90.4125},
-        "Kolkata (IN)": {"lat": 22.5726, "lon": 88.3639},
-        "Imphal (IN)": {"lat": 24.8170, "lon": 93.9368},
-        "Kunming (CN)": {"lat": 25.0453, "lon": 102.7100},
-        "Vientiane (LA)": {"lat": 17.9757, "lon": 102.6331}
-    }
-    
     all_data = []
     city_names = list(CITIES.keys())
     
-    # We fetch data in batches of 30 to bypass slow loops and respect URL length limits
+    # We fetch data in batches of 30 to bypass slow loops
     BATCH_SIZE = 30 
     
     for i in range(0, len(city_names), BATCH_SIZE):
         batch_names = city_names[i : i + BATCH_SIZE]
         
-        # Create comma-separated strings of latitudes and longitudes
+        # Pull lat/lon from the new dictionary structure
         lats = ",".join([str(CITIES[name]["lat"]) for name in batch_names])
         lons = ",".join([str(CITIES[name]["lon"]) for name in batch_names])
         
