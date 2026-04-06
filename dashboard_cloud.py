@@ -7,6 +7,7 @@ import numpy as np                     # <--- NEW
 from scipy.interpolate import griddata # <--- NEW
 import matplotlib.pyplot as plt        # <--- NEW
 import geopandas as gpd
+import scipy.ndimage as ndimage        # <--- NEW: For meteorological smoothing
 
 st.set_page_config(page_title="🇲🇲 Regional Climate & Seismic Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
@@ -57,9 +58,8 @@ with col_toggle:
     use_fahrenheit = st.toggle("Switch to Fahrenheit (°F)")
 
 # --- MASTER DATABASE: REGIONAL CITIES ---
-# --- MASTER DATABASE: REGIONAL CITIES ---
 CITIES = {
-    # --- MYANMAR ---
+    # --- MYANMAR (Core Hubs & States) ---
     "Yangon": {"lat": 16.8409, "lon": 96.1735, "country": "Myanmar"},
     "Mandalay": {"lat": 21.9588, "lon": 96.0891, "country": "Myanmar"},
     "Naypyidaw": {"lat": 19.7450, "lon": 96.1297, "country": "Myanmar"},
@@ -85,23 +85,72 @@ CITIES = {
     "Hpa-An": {"lat": 16.8906, "lon": 97.6333, "country": "Myanmar"},
     "Putao": {"lat": 27.3333, "lon": 97.4333, "country": "Myanmar"},
     "Kawthaung": {"lat": 10.0167, "lon": 98.5500, "country": "Myanmar"},
+    "Hakha": {"lat": 22.6444, "lon": 93.6053, "country": "Myanmar"},
+    "Falam": {"lat": 22.9133, "lon": 93.6833, "country": "Myanmar"},
+    "Gangaw": {"lat": 22.1764, "lon": 94.1406, "country": "Myanmar"},
+    "Matupi": {"lat": 21.6000, "lon": 93.4333, "country": "Myanmar"},
+    "Mindat": {"lat": 21.3750, "lon": 93.9750, "country": "Myanmar"},
+    "Maungdaw": {"lat": 20.8167, "lon": 92.3667, "country": "Myanmar"},
+    "Rathedaung": {"lat": 20.4833, "lon": 92.7500, "country": "Myanmar"},
+    "Pauk": {"lat": 21.4500, "lon": 94.4833, "country": "Myanmar"},
+    "Myaing": {"lat": 21.6167, "lon": 94.8667, "country": "Myanmar"},
+    "Taungdwingyi": {"lat": 20.0000, "lon": 95.5500, "country": "Myanmar"},
+    "Aunglan": {"lat": 19.3667, "lon": 95.3167, "country": "Myanmar"},
+    "Mindon": {"lat": 19.3667, "lon": 94.7667, "country": "Myanmar"},
+    "Kanbalu": {"lat": 23.2000, "lon": 95.5167, "country": "Myanmar"},
+    "Kawlin": {"lat": 23.7833, "lon": 95.6833, "country": "Myanmar"},
+    "Banmauk": {"lat": 24.3833, "lon": 95.8500, "country": "Myanmar"},
+    "Maw Luu": {"lat": 24.1333, "lon": 96.1667, "country": "Myanmar"},
+    "Bhamo": {"lat": 24.2667, "lon": 97.2333, "country": "Myanmar"},
+    "Shwegu": {"lat": 24.2167, "lon": 96.7833, "country": "Myanmar"},
+    "Indaw": {"lat": 24.2167, "lon": 96.1333, "country": "Myanmar"},
+    "Muse": {"lat": 23.9833, "lon": 97.8964, "country": "Myanmar"},
+    "Namhkam": {"lat": 23.8333, "lon": 97.6833, "country": "Myanmar"},
+    "Homalin": {"lat": 24.8667, "lon": 94.9000, "country": "Myanmar"},
+    "Danai": {"lat": 26.1167, "lon": 96.6667, "country": "Myanmar"},
+    "Mohnyin": {"lat": 24.7833, "lon": 96.3667, "country": "Myanmar"},
+    "Coco Island": {"lat": 14.1167, "lon": 93.3500, "country": "Myanmar"},
+    "Mongla": {"lat": 21.6833, "lon": 100.0167, "country": "Myanmar"},
+    "Tangyan": {"lat": 22.4833, "lon": 98.4000, "country": "Myanmar"},
+    "Laukkaing": {"lat": 23.6833, "lon": 98.7667, "country": "Myanmar"},
+    "Ye": {"lat": 15.2500, "lon": 97.9667, "country": "Myanmar"},
+    "Myawaddy": {"lat": 16.6833, "lon": 98.5167, "country": "Myanmar"},
+    "Dawei": {"lat": 14.0833, "lon": 98.2000, "country": "Myanmar"},
+    "Palaw": {"lat": 12.9667, "lon": 98.6500, "country": "Myanmar"},
+    "Bokpyin": {"lat": 11.2333, "lon": 98.7667, "country": "Myanmar"},
 
     # --- SOUTHEAST ASIA ---
     "Bangkok": {"lat": 13.7563, "lon": 100.5018, "country": "Thailand"},
     "Chiang Mai": {"lat": 18.7953, "lon": 98.9620, "country": "Thailand"},
+    "Mae Sot": {"lat": 16.7167, "lon": 98.5667, "country": "Thailand"},
     "Vientiane": {"lat": 17.9757, "lon": 102.6331, "country": "Laos"},
+    "Luang Prabang": {"lat": 19.8833, "lon": 102.1333, "country": "Laos"},
+    "Phnom Penh": {"lat": 11.5564, "lon": 104.9282, "country": "Cambodia"},
+    "Siem Reap": {"lat": 13.3611, "lon": 103.8590, "country": "Cambodia"},
     "Kuala Lumpur": {"lat": 3.1390, "lon": 101.6869, "country": "Malaysia"},
     "Johor Bahru": {"lat": 1.4927, "lon": 103.7414, "country": "Malaysia"},
     "Kota Bharu": {"lat": 6.1254, "lon": 102.2381, "country": "Malaysia"},
     "Penang": {"lat": 5.4141, "lon": 100.3288, "country": "Malaysia"},
+    "Ipoh": {"lat": 4.5975, "lon": 101.0901, "country": "Malaysia"},
+    "Malacca": {"lat": 2.1896, "lon": 102.2501, "country": "Malaysia"},
+    "Kuantan": {"lat": 3.8077, "lon": 103.3260, "country": "Malaysia"},
+    "Kuching": {"lat": 1.5533, "lon": 110.3440, "country": "Malaysia"},
+    "Ranau": {"lat": 5.9538, "lon": 116.6667, "country": "Malaysia"},
     "Jakarta": {"lat": -6.2088, "lon": 106.8456, "country": "Indonesia"},
     "Banda Aceh": {"lat": 5.5483, "lon": 95.3238, "country": "Indonesia"},
     "Surabaya": {"lat": -7.2504, "lon": 112.7688, "country": "Indonesia"},
     "Bandung": {"lat": -6.9175, "lon": 107.6191, "country": "Indonesia"},
+    "Medan": {"lat": 3.5952, "lon": 98.6722, "country": "Indonesia"},
+    "Denpasar (Bali)": {"lat": -8.6500, "lon": 115.2167, "country": "Indonesia"},
+    "Balikpapan": {"lat": -1.2379, "lon": 116.8529, "country": "Indonesia"},
+    "Manokwari (Papua)": {"lat": -0.8614, "lon": 134.0620, "country": "Indonesia"},
     "Hanoi": {"lat": 21.0285, "lon": 105.8542, "country": "Vietnam"},
     "Ho Chi Minh City": {"lat": 10.8231, "lon": 106.6297, "country": "Vietnam"},
     "Singapore": {"lat": 1.3521, "lon": 103.8198, "country": "Singapore"},
     "Bandar Seri Begawan": {"lat": 4.9031, "lon": 114.9398, "country": "Brunei"},
+    "Dili": {"lat": -8.5586, "lon": 125.5736, "country": "Timor-Leste"},
+    "Manila": {"lat": 14.5995, "lon": 120.9842, "country": "Philippines"},
+    "Cebu": {"lat": 10.3157, "lon": 123.8854, "country": "Philippines"},
 
     # --- EAST ASIA ---
     "Beijing": {"lat": 39.9042, "lon": 116.4074, "country": "China"},
@@ -111,6 +160,18 @@ CITIES = {
     "Chengdu": {"lat": 30.6500, "lon": 104.0667, "country": "China"},
     "Chongqing": {"lat": 29.5332, "lon": 106.5050, "country": "China"},
     "Tianjin": {"lat": 39.0842, "lon": 117.2009, "country": "China"},
+    "Wuhan": {"lat": 30.5928, "lon": 114.3055, "country": "China"},
+    "Xi'an": {"lat": 34.3416, "lon": 108.9398, "country": "China"},
+    "Lhasa": {"lat": 29.6500, "lon": 91.1000, "country": "China"},
+    "Kunming": {"lat": 25.0453, "lon": 102.7100, "country": "China"},
+    "Dali": {"lat": 25.5928, "lon": 100.2177, "country": "China"},
+    "Lijiang": {"lat": 26.8701, "lon": 100.2277, "country": "China"},
+    "Yuxi": {"lat": 24.3533, "lon": 102.5408, "country": "China"},
+    "Honghe": {"lat": 23.3667, "lon": 102.4167, "country": "China"},
+    "Baoshan": {"lat": 25.1167, "lon": 99.1667, "country": "China"},
+    "Wenshan": {"lat": 23.3667, "lon": 104.2500, "country": "China"},
+    "Baotou": {"lat": 40.6522, "lon": 109.8222, "country": "China"},
+    "Nanning": {"lat": 22.8149, "lon": 108.3131, "country": "China"},
     "Hong Kong": {"lat": 22.3193, "lon": 114.1694, "country": "Hong Kong"},
     "Taipei": {"lat": 25.0330, "lon": 121.5654, "country": "Taiwan"},
     "Tokyo": {"lat": 35.6762, "lon": 139.6503, "country": "Japan"},
@@ -122,13 +183,34 @@ CITIES = {
     "Kolkata": {"lat": 22.5726, "lon": 88.3639, "country": "India"},
     "Chennai": {"lat": 13.0827, "lon": 80.2707, "country": "India"},
     "Hyderabad": {"lat": 17.3850, "lon": 78.4867, "country": "India"},
+    "Imphal": {"lat": 24.8170, "lon": 93.9368, "country": "India"},
+    "Kohima": {"lat": 25.6586, "lon": 94.1053, "country": "India"},
+    "Guwahati": {"lat": 26.1445, "lon": 91.7362, "country": "India"},
+    "Gangtok": {"lat": 27.3389, "lon": 88.6065, "country": "India"},
+    "Patna": {"lat": 25.5941, "lon": 85.1376, "country": "India"},
+    "Varanasi": {"lat": 25.3176, "lon": 82.9739, "country": "India"},
+    "Hazaribagh": {"lat": 23.9925, "lon": 85.3637, "country": "India"},
+    "Gaya": {"lat": 24.7914, "lon": 85.0002, "country": "India"},
+    "Aurangabad": {"lat": 19.8762, "lon": 75.3433, "country": "India"},
+    "Jaipur": {"lat": 26.9124, "lon": 75.7873, "country": "India"},
+    "Ahmedabad": {"lat": 23.0225, "lon": 72.5714, "country": "India"},
+    "Indore": {"lat": 22.7196, "lon": 75.8577, "country": "India"},
+    "Surat": {"lat": 21.1702, "lon": 72.8311, "country": "India"},
+    "Kochi": {"lat": 9.9312, "lon": 76.2673, "country": "India"},
+    "Vijayapura": {"lat": 16.8302, "lon": 75.7100, "country": "India"},
+    "Port Blair": {"lat": 11.6234, "lon": 92.7265, "country": "India"},
     "Dhaka": {"lat": 23.8103, "lon": 90.4125, "country": "Bangladesh"},
     "Chittagong": {"lat": 22.3569, "lon": 91.7832, "country": "Bangladesh"},
     "Islamabad": {"lat": 33.6844, "lon": 73.0479, "country": "Pakistan"},
     "Karachi": {"lat": 24.8607, "lon": 67.0011, "country": "Pakistan"},
     "Lahore": {"lat": 31.5204, "lon": 74.3587, "country": "Pakistan"},
+    "Multan": {"lat": 30.1575, "lon": 71.5249, "country": "Pakistan"},
+    "Kathmandu": {"lat": 27.7172, "lon": 85.3240, "country": "Nepal"},
+    "Thimphu": {"lat": 27.4728, "lon": 89.6393, "country": "Bhutan"},
+    "Paro": {"lat": 27.4305, "lon": 89.4133, "country": "Bhutan"},
+    "Colombo": {"lat": 6.9271, "lon": 79.8612, "country": "Sri Lanka"},
+    "Male": {"lat": 4.1755, "lon": 73.5093, "country": "Maldives"}
 }
-
 
 # --- UI: DYNAMIC COUNTRY & CITY FILTERS ---
 st.markdown("### 🔍 Select Location")
@@ -613,17 +695,28 @@ with tab_contour:
         grid_lat = np.linspace(min_lat, max_lat, 400)
         grid_lon, grid_lat = np.meshgrid(grid_lon, grid_lat)
         
-        try:
+try:
             # 4. Interpolate the gaps using SciPy
-            grid_temp = griddata(points, values, (grid_lon, grid_lat), method='cubic')
+            # First pass: Cubic for smooth internal gradients
+            grid_temp_cubic = griddata(points, values, (grid_lon, grid_lat), method='cubic')
+            
+            # Second pass: Nearest to fill the blank edges (like oceans) where cubic fails
+            grid_temp_nearest = griddata(points, values, (grid_lon, grid_lat), method='nearest')
+            
+            # Combine them: If cubic is blank (NaN), use nearest
+            grid_temp = np.where(np.isnan(grid_temp_cubic), grid_temp_nearest, grid_temp_cubic)
+            
+            # --- NEW: METEOROLOGICAL SMOOTHING ---
+            # Apply a Gaussian blur to the grid to create a perfectly liquid, homogeneous heat map
+            # A sigma of 2.0 or 3.0 provides the perfect blend!
+            grid_temp_smoothed = ndimage.gaussian_filter(grid_temp, sigma=2.5)
             
             # 5. Render the Meteorological Contour Map
             fig, ax = plt.subplots(figsize=(14, 10))
             ax.set_facecolor('#e8e9eb') 
             
-            # Draw the continuous heat bands (zorder=2 keeps it at the base)
-            contour = ax.contourf(grid_lon, grid_lat, grid_temp, levels=30, cmap='turbo', alpha=0.85, zorder=2)
-            
+            # Draw the continuous heat bands using our SMOOTHED grid
+            contour = ax.contourf(grid_lon, grid_lat, grid_temp_smoothed, levels=40, cmap='turbo', alpha=0.85, zorder=2)
             # --- NEW: ADD COUNTRY BORDERS ---
             # Load the lightweight world map from geopandas and plot the boundaries over the heat map
             # Load the lightweight world map (using our cached function to bypass GeoPandas 1.0 errors)
