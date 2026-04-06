@@ -733,14 +733,14 @@ with tab_contour:
             "Naypyidaw", "Yangon", "Mandalay", "Bangkok", "Vientiane", "Phnom Penh", 
             "Kuala Lumpur", "Jakarta", "Hanoi", "Singapore", "Bandar Seri Begawan", 
             "Dili", "Manila", "Beijing", "Taipei", "Tokyo", "New Delhi", "Dhaka", 
-            "Islamabad", "Kathmandu", "Thimphu", "Colombo", "Male"
+            "Islamabad", "Kathmandu",  "Colombo", "Male"
         ]
         
         # Filter dataframe to only show these specific cities
         visible_points = map_df[map_df['City'].isin(highlight_cities)]
         
         # Plot ONLY the filtered city data points on top (zorder=4)
-        ax.scatter(visible_points['Lon'], visible_points['Lat'], color='white', edgecolor='black', s=45, zorder=4)
+        ax.scatter(visible_points['Lon'], visible_points['Lat'], color='white', edgecolor='black', s=25, zorder=4) # s=45 to 25
         
         # Label ONLY the filtered cities
         for idx, row in visible_points.iterrows():
