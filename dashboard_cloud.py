@@ -740,7 +740,7 @@ with tab_contour:
         visible_points = map_df[map_df['City'].isin(highlight_cities)]
         
         # Plot ONLY the filtered city data points on top (zorder=4)
-        ax.scatter(visible_points['Lon'], visible_points['Lat'], color='red', edgecolor='black', s=25, zorder=4) # s=45 to 25
+        ax.scatter(visible_points['Lon'], visible_points['Lat'], color='red', edgecolor='black', s=15, zorder=4) # s=45 to 25
         
         # Label ONLY the filtered cities
         for idx, row in visible_points.iterrows():
