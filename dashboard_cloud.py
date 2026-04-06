@@ -3,6 +3,9 @@ import pandas as pd
 import plotly.express as px
 import requests
 import time
+import numpy as np                     # <--- NEW
+from scipy.interpolate import griddata # <--- NEW
+import matplotlib.pyplot as plt        # <--- NEW
 
 st.set_page_config(page_title="🇲🇲 Regional Climate & Seismic Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
@@ -416,9 +419,9 @@ if not period_df.empty:
 
 st.write("") # Adds a tiny bit of spacing before the tabs
 
-# Tabs definition (Updated to 6 tabs)
-tab_heat, tab_storm, tab_health, tab_energy, tab_seismic, tab_logistics = st.tabs([
-    "🌡️ Thermal Dynamics", "🌪️ Storm Warning", "😷 Health & Safety", "⚡ Energy & Solar", "🌍 Seismic Activity", "🚛 Logistics & Env"
+# Tabs definition (Updated to 7 tabs)
+tab_heat, tab_storm, tab_health, tab_energy, tab_seismic, tab_logistics, tab_contour = st.tabs([
+    "🌡️ Thermal Dynamics", "🌪️ Storm Warning", "😷 Health & Safety", "⚡ Energy & Solar", "🌍 Seismic Activity", "🚛 Logistics & Env", "🗺️ Meteorological Model"
 ])
 
 with tab_heat:
@@ -580,3 +583,54 @@ with tab_seismic:
             
     else:
         st.info("No recent significant seismic activity found in the region, or data is still loading.")
+
+# --- NEW TAB 7: True Meteorological Contour Model ---
+with tab_contour:
+    st.markdown("**Regional Thermal Interpolation Model (SciPy & Matplotlib)**")
+    st.markdown("This model uses cubic interpolation to mathematically simulate a continuous weather grid based on live data from regional mega-cities.")
+    
+    # 1. Grab the current temperature data for all cities
+    map_df = past_df[past_df['Timestamp'] == latest_actual_time].copy()
+    
+    # 2. Extract Coordinates and Temperatures
+    points = map_df[['Lon', 'Lat']].values
+    values = map_df['Temperature'].values
+    
+    # 3. Create a high-resolution mathematical grid over the Myanmar/SEA region
+    grid_lon = np.linspace(90.0, 110.0, 300) # 300x300 grid for high definition
+    grid_lat = np.linspace(5.0, 30.0, 300)
+    grid_lon, grid_lat = np.meshgrid(grid_lon, grid_lat)
+    
+    # 4. Interpolate the gaps using SciPy (Cubic method creates smooth weather curves)
+    try:
+        grid_temp = griddata(points, values, (grid_lon, grid_lat), method='cubic')
+        
+        # 5. Render the Meteorological Contour Map
+        fig, ax = plt.subplots(figsize=(12, 10))
+        
+        # Fill background for areas outside our city grid (oceans/distant borders)
+        ax.set_facecolor('#e8e9eb') 
+        
+        # Draw the continuous heat bands using 'turbo' (a vivid meteorological colormap)
+        contour = ax.contourf(grid_lon, grid_lat, grid_temp, levels=25, cmap='turbo', alpha=0.85)
+        
+        # Plot the actual city data points on top for reference
+        ax.scatter(map_df['Lon'], map_df['Lat'], color='white', edgecolor='black', s=40, zorder=5)
+        
+        # Label the major cities (only a subset to prevent clutter)
+        for idx, row in map_df.iterrows():
+            if row['City'] in ["Yangon", "Mandalay", "Bangkok", "Dhaka", "Kuala Lumpur", "New Delhi", "Hanoi"]:
+                ax.text(row['Lon'] + 0.3, row['Lat'], row['City'], fontsize=9, color='black', weight='bold', zorder=6)
+                
+        # Formatting the chart
+        plt.colorbar(contour, ax=ax, label=f"Temperature ({temp_unit})", shrink=0.8)
+        ax.set_title(f"Continuous Thermal Surface Map ({latest_actual_time.strftime('%Y-%m-%d %H:%M')} MMT)", fontsize=16, pad=15)
+        ax.set_xlabel("Longitude", fontsize=12)
+        ax.set_ylabel("Latitude", fontsize=12)
+        ax.grid(True, linestyle='--', alpha=0.4)
+        
+        # Send the Matplotlib figure to Streamlit
+        st.pyplot(fig)
+        
+    except Exception as e:
+        st.error(f"Not enough data points currently loaded to compute interpolation grid. Error: {e}")
