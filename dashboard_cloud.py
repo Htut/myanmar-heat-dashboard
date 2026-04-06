@@ -6,6 +6,7 @@ import time
 import numpy as np                     # <--- NEW
 from scipy.interpolate import griddata # <--- NEW
 import matplotlib.pyplot as plt        # <--- NEW
+import geopandas as gpd
 
 st.set_page_config(page_title="🇲🇲 Regional Climate & Seismic Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
@@ -592,45 +593,57 @@ with tab_contour:
     # 1. Grab the current temperature data for all cities
     map_df = past_df[past_df['Timestamp'] == latest_actual_time].copy()
     
-    # 2. Extract Coordinates and Temperatures
-    points = map_df[['Lon', 'Lat']].values
-    values = map_df['Temperature'].values
-    
-    # 3. Create a high-resolution mathematical grid over the Myanmar/SEA region
-    grid_lon = np.linspace(90.0, 110.0, 300) # 300x300 grid for high definition
-    grid_lat = np.linspace(5.0, 30.0, 300)
-    grid_lon, grid_lat = np.meshgrid(grid_lon, grid_lat)
-    
-    # 4. Interpolate the gaps using SciPy (Cubic method creates smooth weather curves)
-    try:
-        grid_temp = griddata(points, values, (grid_lon, grid_lat), method='cubic')
+    if not map_df.empty:
+        # 2. Extract Coordinates and Temperatures
+        points = map_df[['Lon', 'Lat']].values
+        values = map_df['Temperature'].values
         
-        # 5. Render the Meteorological Contour Map
-        fig, ax = plt.subplots(figsize=(12, 10))
+        # 3. DYNAMIC GRID: Calculate boundaries based on the actual data limits + a 3-degree buffer
+        min_lon, max_lon = map_df['Lon'].min() - 3, map_df['Lon'].max() + 3
+        min_lat, max_lat = map_df['Lat'].min() - 3, map_df['Lat'].max() + 3
         
-        # Fill background for areas outside our city grid (oceans/distant borders)
-        ax.set_facecolor('#e8e9eb') 
+        # Create a high-resolution 400x400 grid spanning the new dynamic area
+        grid_lon = np.linspace(min_lon, max_lon, 400) 
+        grid_lat = np.linspace(min_lat, max_lat, 400)
+        grid_lon, grid_lat = np.meshgrid(grid_lon, grid_lat)
         
-        # Draw the continuous heat bands using 'turbo' (a vivid meteorological colormap)
-        contour = ax.contourf(grid_lon, grid_lat, grid_temp, levels=25, cmap='turbo', alpha=0.85)
-        
-        # Plot the actual city data points on top for reference
-        ax.scatter(map_df['Lon'], map_df['Lat'], color='white', edgecolor='black', s=40, zorder=5)
-        
-        # Label the major cities (only a subset to prevent clutter)
-        for idx, row in map_df.iterrows():
-            if row['City'] in ["Yangon", "Mandalay", "Bangkok", "Dhaka", "Kuala Lumpur", "New Delhi", "Hanoi"]:
-                ax.text(row['Lon'] + 0.3, row['Lat'], row['City'], fontsize=9, color='black', weight='bold', zorder=6)
-                
-        # Formatting the chart
-        plt.colorbar(contour, ax=ax, label=f"Temperature ({temp_unit})", shrink=0.8)
-        ax.set_title(f"Continuous Thermal Surface Map ({latest_actual_time.strftime('%Y-%m-%d %H:%M')} MMT)", fontsize=16, pad=15)
-        ax.set_xlabel("Longitude", fontsize=12)
-        ax.set_ylabel("Latitude", fontsize=12)
-        ax.grid(True, linestyle='--', alpha=0.4)
-        
-        # Send the Matplotlib figure to Streamlit
-        st.pyplot(fig)
-        
-    except Exception as e:
-        st.error(f"Not enough data points currently loaded to compute interpolation grid. Error: {e}")
+        try:
+            # 4. Interpolate the gaps using SciPy
+            grid_temp = griddata(points, values, (grid_lon, grid_lat), method='cubic')
+            
+            # 5. Render the Meteorological Contour Map
+            fig, ax = plt.subplots(figsize=(14, 10))
+            ax.set_facecolor('#e8e9eb') 
+            
+            # Draw the continuous heat bands (zorder=2 keeps it at the base)
+            contour = ax.contourf(grid_lon, grid_lat, grid_temp, levels=30, cmap='turbo', alpha=0.85, zorder=2)
+            
+            # --- NEW: ADD COUNTRY BORDERS ---
+            # Load the lightweight world map from geopandas and plot the boundaries over the heat map
+            world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+            world.boundary.plot(ax=ax, color='#333333', linewidth=0.8, zorder=3)
+            
+            # Lock the map view to our dynamic grid so we don't see the whole globe
+            ax.set_xlim(min_lon, max_lon)
+            ax.set_ylim(min_lat, max_lat)
+            
+            # Plot the actual city data points on top (zorder=4)
+            ax.scatter(map_df['Lon'], map_df['Lat'], color='white', edgecolor='black', s=45, zorder=4)
+            
+            # Label the major cities
+            for idx, row in map_df.iterrows():
+                if row['City'] in ["Yangon", "Mandalay", "Bangkok", "Dhaka", "Kuala Lumpur", "New Delhi", "Hanoi", "Beijing", "Tokyo", "Jakarta"]:
+                    ax.text(row['Lon'] + 0.5, row['Lat'], row['City'], fontsize=10, color='black', weight='bold', zorder=5)
+                    
+            # Formatting the chart
+            plt.colorbar(contour, ax=ax, label=f"Temperature ({temp_unit})", shrink=0.8)
+            ax.set_title(f"Continuous Thermal Surface Map ({latest_actual_time.strftime('%Y-%m-%d %H:%M')} MMT)", fontsize=16, pad=15)
+            ax.set_xlabel("Longitude", fontsize=12)
+            ax.set_ylabel("Latitude", fontsize=12)
+            ax.grid(True, linestyle='--', alpha=0.3)
+            
+            # Send the Matplotlib figure to Streamlit
+            st.pyplot(fig)
+            
+        except Exception as e:
+            st.error(f"Not enough data points currently loaded to compute interpolation grid. Error: {e}")
