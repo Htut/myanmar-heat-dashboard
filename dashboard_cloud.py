@@ -73,10 +73,9 @@ def load_data():
     
     all_data = []
     for city_name, coords in CITIES.items():
-        # Weather API (Added Soil Moisture, Runoff, and Visibility)
-        # Weather API (Added Soil Moisture, Runoff, and Visibility)
-        W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure,soil_moisture_0_to_7cm,runoff,visibility&timezone=Asia%2FYangon"
-        # Air Quality API (Added Carbon Monoxide and Dust)
+        # Weather API (Fixed Runoff and Soil Moisture parameter names)
+        W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure,soil_moisture_0_to_1cm,runoff,visibility&timezone=Asia%2FYangon"
+        # Air Quality API 
         AQ_URL = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={coords['lat']}&longitude={coords['lon']}&past_days=7&forecast_days=7&hourly=pm2_5,us_aqi,carbon_monoxide,dust&timezone=Asia%2FYangon"
         
         try:
@@ -98,6 +97,11 @@ def load_data():
             
         time.sleep(1) 
         
+    # Crash-proof safety net if API rejects the request entirely
+    if not all_data:
+        st.error("Critical API Error: Weather data requests failed. Please check API parameters.")
+        return pd.DataFrame() 
+
     df = pd.concat(all_data, ignore_index=True)
     
     # Rename all columns to clean, readable titles
@@ -112,8 +116,8 @@ def load_data():
         'shortwave_radiation': 'Solar Radiation',
         'cloud_cover': 'Cloud Cover',
         'surface_pressure': 'Surface Pressure',
-        'soil_moisture_0_to_7cm': 'Soil Moisture',
-        'runoff': 'Runoff',               # <--- Changed from 'surface_runoff'
+        'soil_moisture_0_to_1cm': 'Soil Moisture', # <-- FIXED
+        'runoff': 'Runoff',                      # <-- FIXED
         'visibility': 'Visibility',
         'pm2_5': 'PM2.5',
         'us_aqi': 'US AQI',
@@ -131,7 +135,6 @@ def load_data():
     df.fillna(method='ffill', inplace=True)
     df.fillna(method='bfill', inplace=True)
 
-    # ... (Keep your live USGS Seismic data block exactly as it is below this) ...
     # Air Quality forecast sometimes drops off a day early; this cleanly fills the gaps
     df['US AQI'] = df['US AQI'].ffill().bfill()
     df['PM2.5'] = df['PM2.5'].ffill().bfill()
@@ -152,11 +155,10 @@ def load_data():
                 "Lon": coords[0],
                 "Depth": coords[2]
             })
-        # Save earthquake data into Streamlit's session state so it can be used anywhere
         st.session_state.eq_df = pd.DataFrame(eq_data)
     except Exception as e:
         st.error("Failed to load live seismic data.")
-        st.session_state.eq_df = pd.DataFrame() # Empty dataframe on failure
+        st.session_state.eq_df = pd.DataFrame() 
     
     return df
 
