@@ -53,8 +53,9 @@ with col_toggle:
     use_fahrenheit = st.toggle("Switch to Fahrenheit (°F)")
 
 # --- MASTER DATABASE: REGIONAL CITIES ---
+# --- MASTER DATABASE: REGIONAL CITIES ---
 CITIES = {
-    # --- MYANMAR (>100k Population) ---
+    # --- MYANMAR ---
     "Yangon": {"lat": 16.8409, "lon": 96.1735, "country": "Myanmar"},
     "Mandalay": {"lat": 21.9588, "lon": 96.0891, "country": "Myanmar"},
     "Naypyidaw": {"lat": 19.7450, "lon": 96.1297, "country": "Myanmar"},
@@ -75,13 +76,30 @@ CITIES = {
     "Chauk": {"lat": 20.8906, "lon": 94.8236, "country": "Myanmar"},
     "Minbu": {"lat": 20.1775, "lon": 94.8781, "country": "Myanmar"},
     "Sagaing": {"lat": 21.8787, "lon": 95.9797, "country": "Myanmar"},
+    "Bagan": {"lat": 21.1717, "lon": 94.8585, "country": "Myanmar"},
+    "Hinthada": {"lat": 17.6475, "lon": 95.4586, "country": "Myanmar"},
+    "Hpa-An": {"lat": 16.8906, "lon": 97.6333, "country": "Myanmar"},
+    "Putao": {"lat": 27.3333, "lon": 97.4333, "country": "Myanmar"},
+    "Kawthaung": {"lat": 10.0167, "lon": 98.5500, "country": "Myanmar"},
 
-    # --- CAPITALS & METROS (TH, LA, MY > 5M) ---
+    # --- SOUTHEAST ASIA ---
     "Bangkok": {"lat": 13.7563, "lon": 100.5018, "country": "Thailand"},
+    "Chiang Mai": {"lat": 18.7953, "lon": 98.9620, "country": "Thailand"},
     "Vientiane": {"lat": 17.9757, "lon": 102.6331, "country": "Laos"},
     "Kuala Lumpur": {"lat": 3.1390, "lon": 101.6869, "country": "Malaysia"},
+    "Johor Bahru": {"lat": 1.4927, "lon": 103.7414, "country": "Malaysia"},
+    "Kota Bharu": {"lat": 6.1254, "lon": 102.2381, "country": "Malaysia"},
+    "Penang": {"lat": 5.4141, "lon": 100.3288, "country": "Malaysia"},
+    "Jakarta": {"lat": -6.2088, "lon": 106.8456, "country": "Indonesia"},
+    "Banda Aceh": {"lat": 5.5483, "lon": 95.3238, "country": "Indonesia"},
+    "Surabaya": {"lat": -7.2504, "lon": 112.7688, "country": "Indonesia"},
+    "Bandung": {"lat": -6.9175, "lon": 107.6191, "country": "Indonesia"},
+    "Hanoi": {"lat": 21.0285, "lon": 105.8542, "country": "Vietnam"},
+    "Ho Chi Minh City": {"lat": 10.8231, "lon": 106.6297, "country": "Vietnam"},
+    "Singapore": {"lat": 1.3521, "lon": 103.8198, "country": "Singapore"},
+    "Bandar Seri Begawan": {"lat": 4.9031, "lon": 114.9398, "country": "Brunei"},
 
-    # --- CAPITALS & MEGA CITIES > 10M (CN, IN, BD, PK, ID) ---
+    # --- EAST ASIA ---
     "Beijing": {"lat": 39.9042, "lon": 116.4074, "country": "China"},
     "Shanghai": {"lat": 31.2304, "lon": 121.4737, "country": "China"},
     "Guangzhou": {"lat": 23.1291, "lon": 113.2644, "country": "China"},
@@ -89,27 +107,24 @@ CITIES = {
     "Chengdu": {"lat": 30.6500, "lon": 104.0667, "country": "China"},
     "Chongqing": {"lat": 29.5332, "lon": 106.5050, "country": "China"},
     "Tianjin": {"lat": 39.0842, "lon": 117.2009, "country": "China"},
+    "Hong Kong": {"lat": 22.3193, "lon": 114.1694, "country": "Hong Kong"},
+    "Taipei": {"lat": 25.0330, "lon": 121.5654, "country": "Taiwan"},
+    "Tokyo": {"lat": 35.6762, "lon": 139.6503, "country": "Japan"},
 
+    # --- SOUTH ASIA ---
     "New Delhi": {"lat": 28.6139, "lon": 77.2090, "country": "India"},
     "Mumbai": {"lat": 19.0760, "lon": 72.8777, "country": "India"},
     "Bengaluru": {"lat": 12.9716, "lon": 77.5946, "country": "India"},
     "Kolkata": {"lat": 22.5726, "lon": 88.3639, "country": "India"},
     "Chennai": {"lat": 13.0827, "lon": 80.2707, "country": "India"},
     "Hyderabad": {"lat": 17.3850, "lon": 78.4867, "country": "India"},
-
     "Dhaka": {"lat": 23.8103, "lon": 90.4125, "country": "Bangladesh"},
-
+    "Chittagong": {"lat": 22.3569, "lon": 91.7832, "country": "Bangladesh"},
     "Islamabad": {"lat": 33.6844, "lon": 73.0479, "country": "Pakistan"},
     "Karachi": {"lat": 24.8607, "lon": 67.0011, "country": "Pakistan"},
     "Lahore": {"lat": 31.5204, "lon": 74.3587, "country": "Pakistan"},
-
-    "Jakarta": {"lat": -6.2088, "lon": 106.8456, "country": "Indonesia"},
-
-    # --- OTHER CAPITALS ---
-    "Hanoi": {"lat": 21.0285, "lon": 105.8542, "country": "Vietnam"},
-    "Singapore": {"lat": 1.3521, "lon": 103.8198, "country": "Singapore"},
-    "Bandar Seri Begawan": {"lat": 4.9031, "lon": 114.9398, "country": "Brunei"}
 }
+
 
 # --- UI: DYNAMIC COUNTRY & CITY FILTERS ---
 st.markdown("### 🔍 Select Location")
