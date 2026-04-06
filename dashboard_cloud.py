@@ -132,8 +132,8 @@ def load_data():
     df['Visibility'] = df['Visibility'] / 1000.0
     
     # Forward/Back fill to handle slight API timing mismatches
-    df.fillna(method='ffill', inplace=True)
-    df.fillna(method='bfill', inplace=True)
+    df.ffill(inplace=True)
+    df.bfill(inplace=True)
 
     # Air Quality forecast sometimes drops off a day early; this cleanly fills the gaps
     df['US AQI'] = df['US AQI'].ffill().bfill()
