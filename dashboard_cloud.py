@@ -727,14 +727,24 @@ with tab_contour:
         ax.set_xlim(min_lon, max_lon)
         ax.set_ylim(min_lat, max_lat)
         
-        # Plot the actual city data points on top (zorder=4)
-        ax.scatter(map_df['Lon'], map_df['Lat'], color='white', edgecolor='black', s=45, zorder=4)
+        # --- NEW: FILTER VISIBLE POINTS & LABELS ---
+        # Define Regional Capitals + Mandalay & Yangon
+        highlight_cities = [
+            "Naypyidaw", "Yangon", "Mandalay", "Bangkok", "Vientiane", "Phnom Penh", 
+            "Kuala Lumpur", "Jakarta", "Hanoi", "Singapore", "Bandar Seri Begawan", 
+            "Dili", "Manila", "Beijing", "Taipei", "Tokyo", "New Delhi", "Dhaka", 
+            "Islamabad", "Kathmandu", "Thimphu", "Colombo", "Male"
+        ]
         
-        # Label the major cities
-        for idx, row in map_df.iterrows():
-            if row['City'] in ["Yangon", "Mandalay", "Bangkok", "Dhaka", "Kuala Lumpur", "New Delhi", "Hanoi", "Beijing", "Tokyo", "Jakarta"]:
-                ax.text(row['Lon'] + 0.5, row['Lat'], row['City'], fontsize=10, color='black', weight='bold', zorder=5)
-                
+        # Filter dataframe to only show these specific cities
+        visible_points = map_df[map_df['City'].isin(highlight_cities)]
+        
+        # Plot ONLY the filtered city data points on top (zorder=4)
+        ax.scatter(visible_points['Lon'], visible_points['Lat'], color='white', edgecolor='black', s=45, zorder=4)
+        
+        # Label ONLY the filtered cities
+        for idx, row in visible_points.iterrows():
+            ax.text(row['Lon'] + 0.5, row['Lat'], row['City'], fontsize=10, color='black', weight='bold', zorder=5)
         # Formatting the chart
         plt.colorbar(contour, ax=ax, label=f"Temperature ({temp_unit})", shrink=0.8)
         ax.set_title(f"Continuous Thermal Surface Map ({latest_actual_time.strftime('%Y-%m-%d %H:%M')} MMT)", fontsize=16, pad=15)
