@@ -258,55 +258,59 @@ def load_world_map():
     return gpd.read_file(url)
 
 # --- 1. CLOUD-READY DATA LOADER (Upgraded with BCDR Metrics) ---
+# --- 1. CLOUD-READY DATA LOADER (Low & Slow Batching) ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_data():
     all_data = []
     city_names = list(CITIES.keys())
     
-    # We fetch data in batches of 30 to bypass slow loops
-    BATCH_SIZE = 30 
+    # We lowered the batch size to 12. This prevents Open-Meteo's servers from 
+    # buckling under the weight of calculating 14 days of data for too many cities at once.
+    BATCH_SIZE = 12 
+    
+    # --- NEW: VISUAL PROGRESS BAR ---
+    total_batches = (len(city_names) + BATCH_SIZE - 1) // BATCH_SIZE
+    progress_bar = st.progress(0, text="Initializing regional data link...")
     
     for i in range(0, len(city_names), BATCH_SIZE):
+        batch_num = (i // BATCH_SIZE) + 1
+        progress_bar.progress(batch_num / total_batches, text=f"Downloading regional BCDR data (Batch {batch_num}/{total_batches})...")
+        
         batch_names = city_names[i : i + BATCH_SIZE]
         
-        # Pull lat/lon from the new dictionary structure
+        # Pull lat/lon from the dictionary structure
         lats = ",".join([str(CITIES[name]["lat"]) for name in batch_names])
         lons = ",".join([str(CITIES[name]["lon"]) for name in batch_names])
         
-        # A single API call asks for all 30 cities at once
         W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={lats}&longitude={lons}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure,soil_moisture_0_to_1cm,runoff,visibility&timezone=Asia%2FYangon"
         AQ_URL = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lats}&longitude={lons}&past_days=7&forecast_days=7&hourly=pm2_5,us_aqi,carbon_monoxide,dust&timezone=Asia%2FYangon"
         
-        # --- NEW: RETRY & COOL-DOWN ENGINE ---
+        # --- UPGRADED RETRY ENGINE ---
         success = False
-        for attempt in range(3): # Try up to 3 times per batch
+        for attempt in range(4): # Increased to 4 attempts
             try:
                 w_resp = requests.get(W_URL).json()
                 aq_resp = requests.get(AQ_URL).json()
                 
-                # Check if the API threw a "Too many concurrent requests" block
                 if isinstance(w_resp, dict) and 'error' in w_resp:
                     reason = w_resp.get('reason', '')
                     if "concurrent" in reason.lower() or "limit" in reason.lower():
-                        time.sleep(3) # API is overwhelmed. Pause for 3 seconds and retry!
+                        time.sleep(5) # API is overwhelmed. Hard pause for 5 seconds.
                         continue
                     else:
                         st.warning(f"Batch API Error: {reason}")
                         break
                 
-                # If we get here, the data downloaded perfectly!
                 success = True
                 break 
                 
             except Exception as e:
-                time.sleep(2) # Network glitch. Wait 2 seconds and retry.
+                time.sleep(3) # Network glitch. Wait 3 seconds.
                 
         if not success:
-            st.error(f"Failed to load batch starting with {batch_names[0]} after multiple attempts.")
-            continue # Skip this batch and move to the next one
+            st.error(f"Failed to load batch starting with {batch_names[0]}.")
+            continue 
             
-        # If only 1 city is in the batch, Open-Meteo returns a dictionary. 
-        # If multiple cities, it returns a list of dictionaries. We unify them:
         if isinstance(w_resp, dict): w_resp = [w_resp]
         if isinstance(aq_resp, dict): aq_resp = [aq_resp]
         
@@ -325,10 +329,12 @@ def load_data():
                 city_merged['Lon'] = CITIES[city]['lon']
                 all_data.append(city_merged)
                 
-        # --- INCREASED PAUSE ---
-        # Wait 1.5 seconds between batches to completely avoid the spam filter
-        time.sleep(1.5)
-
+        # --- INCREASED PAUSE TO BYPASS RATE LIMITS ---
+        time.sleep(2.5) 
+        
+    # Clear the progress bar once everything is downloaded!
+    progress_bar.empty()
+    
     # Crash-proof safety net
     if not all_data:
         st.error("Critical API Error: Weather data requests failed. Please check API parameters.")
@@ -336,6 +342,7 @@ def load_data():
 
     df = pd.concat(all_data, ignore_index=True)
     
+
     # Rename all columns to clean, readable titles
     df.rename(columns={
         'time': 'Timestamp',
