@@ -277,41 +277,58 @@ def load_data():
         W_URL = f"https://api.open-meteo.com/v1/forecast?latitude={lats}&longitude={lons}&past_days=7&forecast_days=7&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_gusts_10m,uv_index,shortwave_radiation,cloud_cover,surface_pressure,soil_moisture_0_to_1cm,runoff,visibility&timezone=Asia%2FYangon"
         AQ_URL = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lats}&longitude={lons}&past_days=7&forecast_days=7&hourly=pm2_5,us_aqi,carbon_monoxide,dust&timezone=Asia%2FYangon"
         
-        try:
-            w_resp = requests.get(W_URL).json()
-            aq_resp = requests.get(AQ_URL).json()
-            
-            # Catch Open-Meteo rate limit or parameter errors
-            if isinstance(w_resp, dict) and 'error' in w_resp:
-                st.warning(f"Batch API Error: {w_resp.get('reason')}")
-                continue
+        # --- NEW: RETRY & COOL-DOWN ENGINE ---
+        success = False
+        for attempt in range(3): # Try up to 3 times per batch
+            try:
+                w_resp = requests.get(W_URL).json()
+                aq_resp = requests.get(AQ_URL).json()
                 
-            # If only 1 city is in the batch, Open-Meteo returns a dictionary. 
-            # If multiple cities, it returns a list of dictionaries. We unify them:
-            if isinstance(w_resp, dict): w_resp = [w_resp]
-            if isinstance(aq_resp, dict): aq_resp = [aq_resp]
-            
-            # Process the returned batch list
-            for j, city in enumerate(batch_names):
-                city_w_data = w_resp[j]
-                city_aq_data = aq_resp[j]
+                # Check if the API threw a "Too many concurrent requests" block
+                if isinstance(w_resp, dict) and 'error' in w_resp:
+                    reason = w_resp.get('reason', '')
+                    if "concurrent" in reason.lower() or "limit" in reason.lower():
+                        time.sleep(3) # API is overwhelmed. Pause for 3 seconds and retry!
+                        continue
+                    else:
+                        st.warning(f"Batch API Error: {reason}")
+                        break
                 
-                w_df = pd.DataFrame(city_w_data.get('hourly', {}))
-                aq_df = pd.DataFrame(city_aq_data.get('hourly', {}))
+                # If we get here, the data downloaded perfectly!
+                success = True
+                break 
                 
-                if not w_df.empty and not aq_df.empty:
-                    city_merged = pd.merge(w_df, aq_df, on='time', how='left')
-                    city_merged['City'] = city
-                    city_merged['Lat'] = CITIES[city]['lat']
-                    city_merged['Lon'] = CITIES[city]['lon']
-                    all_data.append(city_merged)
-                    
-        except Exception as e:
-            st.error(f"Failed to load batch starting with {batch_names[0]}")
+            except Exception as e:
+                time.sleep(2) # Network glitch. Wait 2 seconds and retry.
+                
+        if not success:
+            st.error(f"Failed to load batch starting with {batch_names[0]} after multiple attempts.")
+            continue # Skip this batch and move to the next one
             
-        # A tiny pause between large batches to respect free-tier servers
-        time.sleep(0.5) 
+        # If only 1 city is in the batch, Open-Meteo returns a dictionary. 
+        # If multiple cities, it returns a list of dictionaries. We unify them:
+        if isinstance(w_resp, dict): w_resp = [w_resp]
+        if isinstance(aq_resp, dict): aq_resp = [aq_resp]
         
+        # Process the returned batch list
+        for j, city in enumerate(batch_names):
+            city_w_data = w_resp[j]
+            city_aq_data = aq_resp[j]
+            
+            w_df = pd.DataFrame(city_w_data.get('hourly', {}))
+            aq_df = pd.DataFrame(city_aq_data.get('hourly', {}))
+            
+            if not w_df.empty and not aq_df.empty:
+                city_merged = pd.merge(w_df, aq_df, on='time', how='left')
+                city_merged['City'] = city
+                city_merged['Lat'] = CITIES[city]['lat']
+                city_merged['Lon'] = CITIES[city]['lon']
+                all_data.append(city_merged)
+                
+        # --- INCREASED PAUSE ---
+        # Wait 1.5 seconds between batches to completely avoid the spam filter
+        time.sleep(1.5)
+
     # Crash-proof safety net
     if not all_data:
         st.error("Critical API Error: Weather data requests failed. Please check API parameters.")
@@ -372,6 +389,11 @@ def load_data():
 
 with st.spinner("Fetching latest regional weather & forecast data..."):
     df = load_data()
+
+# --- NEW: CRASH PREVENTION KILL SWITCH ---
+if df.empty:
+    st.error("🚨 CRITICAL: The meteorological API is currently blocking requests or is offline. Please wait 1 minute and refresh the page.")
+    st.stop() # This instantly stops the app from rendering charts, completely preventing the KeyError!
 
 display_df = df.copy()
 temp_unit = "°C"
