@@ -266,7 +266,7 @@ def load_data():
     
     # We lowered the batch size to 12. This prevents Open-Meteo's servers from 
     # buckling under the weight of calculating 14 days of data for too many cities at once.
-    BATCH_SIZE = 12 
+    BATCH_SIZE = 3
     
     # --- NEW: VISUAL PROGRESS BAR ---
     total_batches = (len(city_names) + BATCH_SIZE - 1) // BATCH_SIZE
